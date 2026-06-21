@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,27 +11,30 @@ import 'screens/lobby/lobby_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Lock to landscape for the game
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
-  ]);
+  if (!kIsWeb) {
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  }
 
-  // Hide system UI for immersive experience
-  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+  const supabaseKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
-  // Initialize Supabase
-  await Supabase.initialize(
-    url: const String.fromEnvironment(
-      'SUPABASE_URL',
-      defaultValue: 'https://your-project.supabase.co',
-    ),
-    // ignore: deprecated_member_use
-    anonKey: const String.fromEnvironment(
-      'SUPABASE_ANON_KEY',
-      defaultValue: 'your-anon-key',
-    ),
-  );
+  if (supabaseUrl.isNotEmpty && supabaseKey.isNotEmpty) {
+    try {
+      await Supabase.initialize(
+        url: supabaseUrl,
+        // ignore: deprecated_member_use
+        anonKey: supabaseKey,
+      );
+    } catch (e) {
+      debugPrint('Supabase init error: $e');
+    }
+  } else {
+    debugPrint('Supabase URL or key not configured');
+  }
 
   runApp(const ProviderScope(child: WarSecondWindApp()));
 }
