@@ -5,7 +5,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/game_state.dart';
 import '../engine/game_engine.dart';
 import '../services/supabase_service.dart';
-import '../services/bot_service.dart';
 
 class GameNotifierState {
   final GameState? gameState;
@@ -69,9 +68,7 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
       final match = await SupabaseService.getMatch(matchId);
       if (match != null) {
         final pNum = match['player1_id'] == userId ? 1 : 2;
-        final isBot = match['player2_id'] == BotService.botUserId ||
-            match['player1_id'] == BotService.botUserId;
-        state = state.copyWith(playerNum: pNum, isBotMatch: isBot);
+        state = state.copyWith(playerNum: pNum);
       }
 
       final gs = await SupabaseService.getGameState(matchId);

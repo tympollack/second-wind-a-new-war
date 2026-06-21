@@ -156,7 +156,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 
     final botName = BotService.generateBotName();
     try {
-      await SupabaseService.startBotMatch(matchId, botName);
+      await SupabaseService.startBotMatch(matchId);
       _navigateToBotGame(matchId, botName);
     } catch (e) {
       if (mounted) {

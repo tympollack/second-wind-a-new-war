@@ -1,7 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/game_state.dart';
 import '../engine/game_engine.dart';
-import 'bot_service.dart';
 
 class SupabaseService {
   static SupabaseClient get client => Supabase.instance.client;
@@ -75,16 +74,8 @@ class SupabaseService {
     return response;
   }
 
-  static Future<void> startBotMatch(String matchId, String botName) async {
-    // Ensure bot user exists
-    await client.from('users').upsert({
-      'id': BotService.botUserId,
-      'display_name': botName,
-    });
-
-    // Join the match as bot
+  static Future<void> startBotMatch(String matchId) async {
     await client.from('matches').update({
-      'player2_id': BotService.botUserId,
       'status': 'in-progress',
     }).eq('id', matchId);
   }
