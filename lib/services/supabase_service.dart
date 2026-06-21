@@ -28,11 +28,16 @@ class SupabaseService {
   }
 
   // User profile
-  static Future<void> upsertUser(String id, String displayName) async {
-    await client.from('users').upsert({
+  static Future<void> upsertUser(String id, String displayName,
+      {String? deviceId}) async {
+    final data = <String, dynamic>{
       'id': id,
       'display_name': displayName,
-    });
+    };
+    if (deviceId != null) {
+      data['device_id'] = deviceId;
+    }
+    await client.from('users').upsert(data);
   }
 
   static Future<Map<String, dynamic>?> getUser(String id) async {

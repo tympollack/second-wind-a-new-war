@@ -4,9 +4,11 @@ import '../../providers/auth_provider.dart';
 import '../../providers/game_provider.dart';
 import '../../models/game_state.dart';
 import '../../engine/game_engine.dart';
+import '../../services/device_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/playing_card_widget.dart';
 import '../../widgets/military_button.dart';
+import '../../widgets/account_prompt_dialog.dart';
 
 class GameScreen extends ConsumerStatefulWidget {
   final String matchId;
@@ -603,9 +605,32 @@ class _GameScreenState extends ConsumerState<GameScreen>
     );
   }
 
+  bool _promptShown = false;
+
+  Future<void> _maybeShowAccountPrompt() async {
+    if (_promptShown) return;
+    final authState = ref.read(authProvider);
+    if (!authState.isAnonymous) return;
+
+    await DeviceService.incrementGamesPlayed();
+    final shouldShow = await DeviceService.shouldShowAccountPrompt();
+    if (!shouldShow || !mounted) return;
+
+    _promptShown = true;
+    showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AccountPromptDialog(),
+    );
+  }
+
   Widget _buildGameOverArea(GameState gs) {
     final playerNum = ref.read(gameProvider).playerNum;
     final didWin = gs.gameWinner == 'Player $playerNum';
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeShowAccountPrompt();
+    });
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -627,7 +652,10 @@ class _GameScreenState extends ConsumerState<GameScreen>
             MilitaryButton(
               label: 'REDEPLOY',
               color: AppTheme.primaryCyan,
-              onPressed: () => ref.read(gameProvider.notifier).newGame(),
+              onPressed: () {
+                _promptShown = false;
+                ref.read(gameProvider.notifier).newGame();
+              },
             ),
             const SizedBox(width: 16),
             MilitaryButton(
