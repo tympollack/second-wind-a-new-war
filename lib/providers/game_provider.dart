@@ -1,8 +1,11 @@
+import 'dart:async';
+import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/game_state.dart';
 import '../engine/game_engine.dart';
 import '../services/supabase_service.dart';
+import '../services/bot_service.dart';
 
 class GameNotifierState {
   final GameState? gameState;
@@ -12,6 +15,8 @@ class GameNotifierState {
   final int playerNum;
   final String? error;
   final bool isLoading;
+  final bool isBotMatch;
+  final String? botName;
 
   const GameNotifierState({
     this.gameState,
@@ -21,6 +26,8 @@ class GameNotifierState {
     this.playerNum = 1,
     this.error,
     this.isLoading = false,
+    this.isBotMatch = false,
+    this.botName,
   });
 
   GameNotifierState copyWith({
@@ -31,6 +38,8 @@ class GameNotifierState {
     int? playerNum,
     String? error,
     bool? isLoading,
+    bool? isBotMatch,
+    String? botName,
   }) {
     return GameNotifierState(
       gameState: gameState ?? this.gameState,
@@ -40,12 +49,16 @@ class GameNotifierState {
       playerNum: playerNum ?? this.playerNum,
       error: error,
       isLoading: isLoading ?? this.isLoading,
+      isBotMatch: isBotMatch ?? this.isBotMatch,
+      botName: botName ?? this.botName,
     );
   }
 }
 
 class GameNotifier extends StateNotifier<GameNotifierState> {
   RealtimeChannel? _gameChannel;
+  Timer? _botTimer;
+  final _random = Random();
 
   GameNotifier() : super(const GameNotifierState());
 
@@ -56,7 +69,9 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
       final match = await SupabaseService.getMatch(matchId);
       if (match != null) {
         final pNum = match['player1_id'] == userId ? 1 : 2;
-        state = state.copyWith(playerNum: pNum);
+        final isBot = match['player2_id'] == BotService.botUserId ||
+            match['player1_id'] == BotService.botUserId;
+        state = state.copyWith(playerNum: pNum, isBotMatch: isBot);
       }
 
       final gs = await SupabaseService.getGameState(matchId);
@@ -74,10 +89,21 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
         isLoading: false,
       );
 
-      _subscribeToGameState(matchId);
+      if (!state.isBotMatch) {
+        _subscribeToGameState(matchId);
+      }
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
+  }
+
+  Future<void> loadBotGame(String matchId, String userId,
+      String botName) async {
+    state = state.copyWith(
+      isBotMatch: true,
+      botName: botName,
+    );
+    await loadGame(matchId, userId);
   }
 
   void _subscribeToGameState(String matchId) {
@@ -113,6 +139,42 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
     } catch (e) {
       state = state.copyWith(error: 'Failed to sync game state');
     }
+
+    if (state.isBotMatch && nextState.phase != GamePhase.gameOver) {
+      _scheduleBotMove();
+    }
+  }
+
+  void _scheduleBotMove() {
+    _botTimer?.cancel();
+    final delay = 800 + _random.nextInt(1200);
+    _botTimer = Timer(Duration(milliseconds: delay), () {
+      _executeBotMove();
+    });
+  }
+
+  void _executeBotMove() {
+    final gs = state.gameState;
+    if (gs == null || state.gameStateId == null) return;
+    if (gs.phase == GamePhase.gameOver) return;
+    if (!canAdvance(gs)) return;
+
+    final botPlayerLabel = state.playerNum == 1 ? 'Player 2' : 'Player 1';
+    final nextState = advanceGame(gs, botPlayerLabel);
+
+    state = state.copyWith(
+      gameState: nextState,
+      version: state.version + 1,
+    );
+
+    SupabaseService.updateGameState(
+      state.gameStateId!,
+      nextState,
+      state.version,
+    ).catchError((e) {
+      state = state.copyWith(error: 'Failed to sync game state');
+      return null;
+    });
   }
 
   Future<void> newGame() async {
@@ -125,6 +187,7 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
   }
 
   void leaveGame() {
+    _botTimer?.cancel();
     _gameChannel?.unsubscribe();
     _gameChannel = null;
     state = const GameNotifierState();
@@ -132,6 +195,7 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
 
   @override
   void dispose() {
+    _botTimer?.cancel();
     _gameChannel?.unsubscribe();
     super.dispose();
   }

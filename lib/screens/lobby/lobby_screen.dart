@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/game_provider.dart';
 import '../../services/supabase_service.dart';
+import '../../services/bot_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/military_button.dart';
 import '../../widgets/metal_panel.dart';
@@ -25,7 +28,12 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   bool _isLoading = false;
   Map<String, dynamic>? _waitingMatch;
   RealtimeChannel? _matchChannel;
+  Timer? _botTimer;
+  int _waitSeconds = 0;
+  Timer? _countdownTimer;
   List<Map<String, dynamic>> _onlineUsers = [];
+
+  static const _botTimeoutSeconds = 15;
 
   @override
   void initState() {
@@ -37,6 +45,8 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   void dispose() {
     _joinCodeController.dispose();
     _matchChannel?.unsubscribe();
+    _botTimer?.cancel();
+    _countdownTimer?.cancel();
     super.dispose();
   }
 
@@ -68,10 +78,14 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
         (updated) {
           if (updated['status'] == 'in-progress' &&
               updated['player2_id'] != null) {
+            _botTimer?.cancel();
+            _countdownTimer?.cancel();
             _navigateToGame(updated['id'] as String);
           }
         },
       );
+
+      _startBotCountdown(match['id'] as String, userId);
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -119,11 +133,65 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     }
   }
 
+  void _startBotCountdown(String matchId, String userId) {
+    _waitSeconds = 0;
+    _countdownTimer?.cancel();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() => _waitSeconds++);
+    });
+
+    _botTimer?.cancel();
+    _botTimer = Timer(const Duration(seconds: _botTimeoutSeconds), () {
+      _startBotGame(matchId, userId);
+    });
+  }
+
+  Future<void> _startBotGame(String matchId, String userId) async {
+    _countdownTimer?.cancel();
+    _matchChannel?.unsubscribe();
+
+    final botName = BotService.generateBotName();
+    try {
+      await SupabaseService.startBotMatch(matchId, botName);
+      _navigateToBotGame(matchId, botName);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _error = 'Failed to start bot match');
+      }
+    }
+  }
+
+  void _navigateToBotGame(String matchId, String botName) {
+    _matchChannel?.unsubscribe();
+    final userId = ref.read(authProvider).user?.id;
+    if (userId == null) return;
+
+    ref.read(gameProvider.notifier).loadBotGame(matchId, userId, botName);
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => GameScreen(matchId: matchId),
+      ),
+    );
+    setState(() {
+      _waitingMatch = null;
+      _isLoading = false;
+    });
+  }
+
   Future<void> _cancelWaiting() async {
     if (_waitingMatch == null) return;
     _matchChannel?.unsubscribe();
+    _botTimer?.cancel();
+    _countdownTimer?.cancel();
     await SupabaseService.deleteMatch(_waitingMatch!['id'] as String);
-    setState(() => _waitingMatch = null);
+    setState(() {
+      _waitingMatch = null;
+      _waitSeconds = 0;
+    });
   }
 
   void _navigateToGame(String matchId) {
@@ -371,9 +439,11 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Text(
-                  'Waiting for opponent...',
-                  style: TextStyle(color: AppTheme.metalGray, fontSize: 14),
+                Text(
+                  _waitSeconds < _botTimeoutSeconds
+                      ? 'Searching for opponent... ${_botTimeoutSeconds - _waitSeconds}s'
+                      : 'Matching with opponent...',
+                  style: const TextStyle(color: AppTheme.metalGray, fontSize: 14),
                 ),
               ],
             ),
