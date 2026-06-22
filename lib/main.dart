@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'config/supabase_config.dart';
 import 'theme/app_theme.dart';
 import 'providers/auth_provider.dart';
 import 'screens/auth/auth_screen.dart';
@@ -19,21 +20,14 @@ void main() async {
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
-  const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
-  const supabaseKey = String.fromEnvironment('SUPABASE_ANON_KEY');
-
-  if (supabaseUrl.isNotEmpty && supabaseKey.isNotEmpty) {
-    try {
-      await Supabase.initialize(
-        url: supabaseUrl,
-        // ignore: deprecated_member_use
-        anonKey: supabaseKey,
-      );
-    } catch (e) {
-      debugPrint('Supabase init error: $e');
-    }
-  } else {
-    debugPrint('Supabase URL or key not configured');
+  try {
+    await Supabase.initialize(
+      url: SupabaseConfig.url,
+      // ignore: deprecated_member_use
+      anonKey: SupabaseConfig.anonKey,
+    );
+  } catch (e) {
+    debugPrint('Supabase init error: $e');
   }
 
   runApp(const ProviderScope(child: WarSecondWindApp()));

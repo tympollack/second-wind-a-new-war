@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/auth_provider.dart';
@@ -57,19 +56,16 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
             fit: BoxFit.cover,
             errorBuilder: (context, error, stackTrace) => Container(color: AppTheme.darkBg),
           ),
-          // Blur background to hide baked-in text
-          BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.6),
-                    Colors.black.withValues(alpha: 0.8),
-                  ],
-                ),
+          // Light overlay for form readability
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.transparent,
+                  Colors.black.withValues(alpha: 0.4),
+                ],
               ),
             ),
           ),
@@ -83,43 +79,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Title
-                      const Text(
-                        'WAR:',
-                        style: TextStyle(
-                          fontFamily: 'RobotoCondensed',
-                          fontWeight: FontWeight.w900,
-                          fontSize: 64,
-                          color: AppTheme.metalLight,
-                          letterSpacing: 4,
-                          height: 0.9,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black,
-                              blurRadius: 20,
-                              offset: Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Text(
-                        'SECOND WIND',
-                        style: TextStyle(
-                          fontFamily: 'RobotoCondensed',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 28,
-                          color: AppTheme.metalLight,
-                          letterSpacing: 6,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black,
-                              blurRadius: 20,
-                              offset: Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 48),
+                      // Spacer to push form below the background title
+                      const SizedBox(height: 120),
 
                       // Auth form
                       SizedBox(
