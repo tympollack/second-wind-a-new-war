@@ -27,9 +27,6 @@ class PlayingCardWidget extends StatelessWidget {
     Color borderColor;
     Color bgStart;
     Color bgEnd;
-    String? statusLabel;
-    Color? statusBgColor;
-    Color? statusTextColor;
     Color textColor;
 
     switch (status) {
@@ -37,31 +34,21 @@ class PlayingCardWidget extends StatelessWidget {
         borderColor = AppTheme.cyanJoker;
         bgStart = AppTheme.cyanJoker.withValues(alpha: 0.2);
         bgEnd = AppTheme.darkCard;
-        statusLabel = 'JOKER';
-        statusBgColor = AppTheme.cyanJoker;
-        statusTextColor = Colors.black;
         textColor = AppTheme.cyanJoker;
       case CardStatus.musketeer:
         borderColor = AppTheme.purpleMusketeer;
-        bgStart = AppTheme.purpleMusketeer.withValues(alpha: 0.2);
-        bgEnd = AppTheme.darkCard;
-        statusLabel = 'MUSK';
-        statusBgColor = AppTheme.purpleMusketeer;
-        statusTextColor = Colors.white;
-        textColor = AppTheme.purpleMusketeer;
+        bgStart = AppTheme.purpleMusketeer.withValues(alpha: 0.3);
+        bgEnd = AppTheme.purpleMusketeer.withValues(alpha: 0.1);
+        textColor = Colors.white;
       case CardStatus.trump:
         borderColor = AppTheme.goldTrump;
-        bgStart = AppTheme.goldTrump.withValues(alpha: 0.15);
-        bgEnd = AppTheme.darkCard;
-        statusLabel = 'TRUMP';
-        statusBgColor = AppTheme.goldTrump;
-        statusTextColor = Colors.black;
+        bgStart = AppTheme.goldTrump.withValues(alpha: 0.25);
+        bgEnd = AppTheme.goldTrump.withValues(alpha: 0.08);
         textColor = AppTheme.goldTrump;
       case CardStatus.normal:
         borderColor = AppTheme.metalGray;
         bgStart = AppTheme.darkCard;
         bgEnd = AppTheme.darkCard;
-        statusLabel = null;
         textColor = card.isRed ? Colors.red.shade400 : Colors.white;
     }
 
@@ -144,33 +131,7 @@ class PlayingCardWidget extends StatelessWidget {
                 ],
               ),
             ),
-            // Status badge
-            if (statusLabel != null)
-              Positioned(
-                top: -1,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: statusBgColor,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      statusLabel,
-                      style: TextStyle(
-                        fontFamily: 'RobotoCondensed',
-                        fontWeight: FontWeight.w900,
-                        fontSize: 8,
-                        letterSpacing: 1,
-                        color: statusTextColor,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+
             // Winner badge
             if (isWinner)
               Positioned(

@@ -142,6 +142,60 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
     }
   }
 
+  /// Collect cards from the current result, then play the next round in one action.
+  /// Used when the UI merges "collect" and "play next" into a single tap.
+  Future<void> collectAndPlay(String userId) async {
+    final gs = state.gameState;
+    if (gs == null || state.gameStateId == null) return;
+
+    // First advance: collect cards (result/warResult → idle)
+    if (!canAdvance(gs)) return;
+    final playerLabel = 'Player ${state.playerNum}';
+    final collected = advanceGame(gs, playerLabel);
+
+    if (collected.phase == GamePhase.gameOver) {
+      state = state.copyWith(
+        gameState: collected,
+        version: state.version + 1,
+      );
+      _syncState(collected);
+      return;
+    }
+
+    // Second advance: play next round (idle → result)
+    if (!canAdvance(collected)) {
+      state = state.copyWith(
+        gameState: collected,
+        version: state.version + 1,
+      );
+      _syncState(collected);
+      return;
+    }
+    final nextRound = advanceGame(collected, playerLabel);
+
+    state = state.copyWith(
+      gameState: nextRound,
+      version: state.version + 2,
+    );
+    _syncState(nextRound);
+
+    if (state.isBotMatch && nextRound.phase != GamePhase.gameOver) {
+      _scheduleBotMove();
+    }
+  }
+
+  Future<void> _syncState(GameState gs) async {
+    try {
+      await SupabaseService.updateGameState(
+        state.gameStateId!,
+        gs,
+        state.version,
+      );
+    } catch (e) {
+      state = state.copyWith(error: 'Failed to sync game state');
+    }
+  }
+
   void _scheduleBotMove() {
     _botTimer?.cancel();
     final delay = 800 + _random.nextInt(1200);
