@@ -53,45 +53,47 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
         iconTheme: const IconThemeData(color: AppTheme.metalGray),
       ),
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppTheme.primaryCyan))
-          : Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  MetalPanel(
-                    title: 'COMBAT RECORD',
-                    child: Column(
-                      children: [
-                        _buildStatRow('VICTORIES',
-                            '${_userData?['wins'] ?? 0}', AppTheme.winGreen),
-                        const SizedBox(height: 8),
-                        _buildStatRow('DEFEATS',
-                            '${_userData?['losses'] ?? 0}', AppTheme.warRed),
-                        const SizedBox(height: 8),
-                        _buildStatRow(
-                            'BATTLES',
-                            '${_userData?['games_played'] ?? 0}',
-                            AppTheme.primaryCyan),
-                        const SizedBox(height: 8),
-                        _buildStatRow(
-                            'WARS TRIGGERED',
-                            '${_userData?['wars_triggered'] ?? 0}',
-                            AppTheme.goldTrump),
-                        const SizedBox(height: 8),
-                        _buildStatRow(
-                            'SECOND WINDS',
-                            '${_userData?['second_winds_used'] ?? 0}',
-                            AppTheme.primaryCyan),
-                      ],
+          ? Center(
+              child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))
+          : SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    MetalPanel(
+                      title: 'COMBAT RECORD',
+                      child: Column(
+                        children: [
+                          _buildStatRow('VICTORIES',
+                              '${_userData?['wins'] ?? 0}', AppTheme.winGreen),
+                          const SizedBox(height: 8),
+                          _buildStatRow('DEFEATS',
+                              '${_userData?['losses'] ?? 0}', AppTheme.warRed),
+                          const SizedBox(height: 8),
+                          _buildStatRow(
+                              'BATTLES',
+                              '${_userData?['games_played'] ?? 0}',
+                              Theme.of(context).colorScheme.primary),
+                          const SizedBox(height: 8),
+                          _buildStatRow(
+                              'WARS TRIGGERED',
+                              '${_userData?['wars_triggered'] ?? 0}',
+                              AppTheme.goldTrump),
+                          const SizedBox(height: 8),
+                          _buildStatRow(
+                              'SECOND WINDS',
+                              '${_userData?['second_winds_used'] ?? 0}',
+                              Theme.of(context).colorScheme.primary),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  MetalPanel(
-                    title: 'WIN RATE',
-                    child: _buildWinRate(),
-                  ),
-                ],
+                    const SizedBox(height: 16),
+                    MetalPanel(
+                      title: 'WIN RATE',
+                      child: _buildWinRate(),
+                    ),
+                  ],
+                ),
               ),
             ),
     );
@@ -133,11 +135,11 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
       children: [
         Text(
           '$rate%',
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'RobotoCondensed',
             fontWeight: FontWeight.w900,
             fontSize: 48,
-            color: AppTheme.primaryCyan,
+            color: Theme.of(context).colorScheme.primary,
           ),
         ),
         const SizedBox(height: 8),

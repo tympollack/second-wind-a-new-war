@@ -8,6 +8,7 @@ class PlayingCardWidget extends StatelessWidget {
   final PlayingCard card;
   final GameState gameState;
   final bool isWinner;
+  final bool isBurning;
   final double width;
   final double height;
 
@@ -16,6 +17,7 @@ class PlayingCardWidget extends StatelessWidget {
     required this.card,
     required this.gameState,
     this.isWinner = false,
+    this.isBurning = false,
     this.width = 80,
     this.height = 120,
   });
@@ -32,23 +34,23 @@ class PlayingCardWidget extends StatelessWidget {
     switch (status) {
       case CardStatus.joker:
         borderColor = AppTheme.cyanJoker;
-        bgStart = AppTheme.cyanJoker.withValues(alpha: 0.2);
+        bgStart = AppTheme.cyanJoker.withValues(alpha: 0.3);
         bgEnd = AppTheme.darkCard;
         textColor = AppTheme.cyanJoker;
       case CardStatus.musketeer:
         borderColor = AppTheme.purpleMusketeer;
-        bgStart = AppTheme.purpleMusketeer.withValues(alpha: 0.3);
-        bgEnd = AppTheme.purpleMusketeer.withValues(alpha: 0.1);
+        bgStart = AppTheme.purpleMusketeer.withValues(alpha: 0.4);
+        bgEnd = AppTheme.darkCard;
         textColor = Colors.white;
       case CardStatus.trump:
         borderColor = AppTheme.goldTrump;
-        bgStart = AppTheme.goldTrump.withValues(alpha: 0.25);
-        bgEnd = AppTheme.goldTrump.withValues(alpha: 0.08);
+        bgStart = AppTheme.goldTrump.withValues(alpha: 0.4);
+        bgEnd = AppTheme.darkCard;
         textColor = AppTheme.goldTrump;
       case CardStatus.normal:
         borderColor = AppTheme.metalGray;
         bgStart = AppTheme.darkCard;
-        bgEnd = AppTheme.darkCard;
+        bgEnd = AppTheme.darkBg;
         textColor = card.isRed ? Colors.red.shade400 : Colors.white;
     }
 
@@ -58,6 +60,24 @@ class PlayingCardWidget extends StatelessWidget {
       displaySuit = '\u2726'; // diamond star for trump
     } else if (status == CardStatus.musketeer) {
       displaySuit = '\u2694'; // crossed swords for musketeer
+    }
+
+    String? statusBadgeLabel;
+    Color? statusBadgeBg;
+    Color? statusBadgeText;
+
+    if (status == CardStatus.trump) {
+      statusBadgeLabel = 'TRUMP';
+      statusBadgeBg = AppTheme.goldTrump;
+      statusBadgeText = Colors.black;
+    } else if (status == CardStatus.musketeer) {
+      statusBadgeLabel = 'MUSK';
+      statusBadgeBg = AppTheme.purpleMusketeer;
+      statusBadgeText = Colors.white;
+    } else if (status == CardStatus.joker) {
+      statusBadgeLabel = 'JOKER';
+      statusBadgeBg = AppTheme.cyanJoker;
+      statusBadgeText = Colors.black;
     }
 
     return AnimatedScale(
@@ -77,6 +97,18 @@ class PlayingCardWidget extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: borderColor, width: 2),
           boxShadow: [
+            if (isBurning)
+              BoxShadow(
+                color: const Color(0xFFCC5500).withValues(alpha: 0.7),
+                blurRadius: 24,
+                spreadRadius: 6,
+              ),
+            if (isBurning)
+              BoxShadow(
+                color: const Color(0xFFFF8C00).withValues(alpha: 0.4),
+                blurRadius: 8,
+                spreadRadius: 2,
+              ),
             if (isWinner)
               BoxShadow(
                 color: AppTheme.winGreen.withValues(alpha: 0.4),
@@ -97,7 +129,18 @@ class PlayingCardWidget extends StatelessWidget {
           ],
         ),
         child: Stack(
+          clipBehavior: Clip.none,
           children: [
+            // Fire overlay when burning
+            if (isBurning)
+              Positioned.fill(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: CustomPaint(
+                    painter: _FireOverlayPainter(),
+                  ),
+                ),
+              ),
             // Joker electricity effect
             if (status == CardStatus.joker)
               Positioned.fill(
@@ -135,24 +178,50 @@ class PlayingCardWidget extends StatelessWidget {
             // Winner badge
             if (isWinner)
               Positioned(
-                bottom: 2,
+                bottom: -8,
                 left: 0,
                 right: 0,
                 child: Center(
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
                       color: AppTheme.winGreen,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Text(
                       'WIN',
                       style: TextStyle(
                         fontFamily: 'RobotoCondensed',
                         fontWeight: FontWeight.w900,
-                        fontSize: 8,
+                        fontSize: 10,
                         color: Colors.black,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+            // Status Badge
+            if (statusBadgeLabel != null)
+              Positioned(
+                top: -8,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: statusBadgeBg,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      statusBadgeLabel,
+                      style: TextStyle(
+                        fontFamily: 'RobotoCondensed',
+                        fontWeight: FontWeight.w900,
+                        fontSize: 9,
+                        color: statusBadgeText,
                         letterSpacing: 1,
                       ),
                     ),
@@ -201,12 +270,14 @@ class FaceDownCardWidget extends StatelessWidget {
   final int count;
   final double width;
   final double height;
+  final double spread;
 
   const FaceDownCardWidget({
     super.key,
     required this.count,
     this.width = 60,
     this.height = 90,
+    this.spread = 8.0,
   });
 
   @override
@@ -214,12 +285,12 @@ class FaceDownCardWidget extends StatelessWidget {
     if (count == 0) return const SizedBox.shrink();
     final displayCount = count.clamp(1, 3);
     return SizedBox(
-      width: width + (displayCount - 1) * 8,
+      width: width + (displayCount - 1) * spread,
       height: height,
       child: Stack(
         children: List.generate(displayCount, (i) {
           return Positioned(
-            left: i * 8.0,
+            left: i * spread,
             child: Container(
               width: width,
               height: height,
@@ -228,14 +299,14 @@ class FaceDownCardWidget extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Color(0xFF1A2744),
-                    Color(0xFF0E1829),
+                    Color(0xFF312E81), // indigo-900 equivalent
+                    Color(0xFF111827), // gray-900 equivalent
                   ],
                 ),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: AppTheme.metalGray.withValues(alpha: 0.4),
-                  width: 1.5,
+                  color: AppTheme.metalGray.withValues(alpha: 0.6),
+                  width: 2,
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -251,7 +322,7 @@ class FaceDownCardWidget extends StatelessWidget {
                   style: TextStyle(
                     fontSize: width * 0.4,
                     fontWeight: FontWeight.w900,
-                    color: AppTheme.primaryCyan.withValues(alpha: 0.5),
+                    color: Colors.indigo.shade300,
                   ),
                 ),
               ),
@@ -293,6 +364,47 @@ class _ElectricityPainter extends CustomPainter {
       ..lineTo(size.width * 0.3, size.height);
 
     canvas.drawPath(path2, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _FireOverlayPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Fiery gradient from bottom - warm orange/red flames rising
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    final gradient = LinearGradient(
+      begin: Alignment.bottomCenter,
+      end: Alignment.topCenter,
+      colors: [
+        const Color(0xFFCC5500).withValues(alpha: 0.45),
+        const Color(0xFFFF8C00).withValues(alpha: 0.25),
+        const Color(0xFFFFD700).withValues(alpha: 0.10),
+        Colors.transparent,
+      ],
+      stops: const [0.0, 0.35, 0.65, 1.0],
+    );
+    final paint = Paint()..shader = gradient.createShader(rect);
+    canvas.drawRect(rect, paint);
+
+    // Flame tongue paths on top edge
+    final flamePaint = Paint()
+      ..color = const Color(0xFFFF8C00).withValues(alpha: 0.3)
+      ..style = PaintingStyle.fill;
+
+    final flame1 = Path()
+      ..moveTo(size.width * 0.1, size.height * 0.15)
+      ..quadraticBezierTo(size.width * 0.2, 0, size.width * 0.3, size.height * 0.12)
+      ..quadraticBezierTo(size.width * 0.25, size.height * 0.22, size.width * 0.1, size.height * 0.15);
+    canvas.drawPath(flame1, flamePaint);
+
+    final flame2 = Path()
+      ..moveTo(size.width * 0.55, size.height * 0.1)
+      ..quadraticBezierTo(size.width * 0.7, 0, size.width * 0.82, size.height * 0.14)
+      ..quadraticBezierTo(size.width * 0.72, size.height * 0.25, size.width * 0.55, size.height * 0.1);
+    canvas.drawPath(flame2, flamePaint);
   }
 
   @override

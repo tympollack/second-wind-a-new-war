@@ -1,11 +1,14 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config/supabase_config.dart';
+import 'firebase_options.dart';
 import 'theme/app_theme.dart';
 import 'providers/auth_provider.dart';
+import 'providers/settings_provider.dart';
 import 'screens/auth/auth_screen.dart';
 import 'screens/lobby/lobby_screen.dart';
 
@@ -30,6 +33,14 @@ void main() async {
     debugPrint('Supabase init error: $e');
   }
 
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    debugPrint('Firebase init error: $e');
+  }
+
   runApp(const ProviderScope(child: WarSecondWindApp()));
 }
 
@@ -38,10 +49,14 @@ class WarSecondWindApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsProvider);
+
     return MaterialApp(
       title: 'War: Second Wind',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
+      theme: AppTheme.getLightTheme(settings.primaryColorOverride),
+      darkTheme: AppTheme.getDarkTheme(settings.primaryColorOverride),
+      themeMode: settings.themeMode,
       home: const _AuthGate(),
     );
   }

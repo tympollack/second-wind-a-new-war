@@ -11,6 +11,7 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.8
   supabase_flutter: ^2.9.0
+  http: ^1.2.2
   flutter_riverpod: ^2.6.1
   riverpod_annotation: ^2.6.1
   go_router: ^14.8.1
@@ -22,6 +23,8 @@ dependencies:
   shimmer: ^3.0.0
   google_fonts: ^6.2.1
   flutter_animate: ^4.5.2
+  firebase_core: ^4.11.0
+  firebase_messaging: ^16.4.1
 
 dev_dependencies:
   flutter_test:
@@ -36,4 +39,4 @@ flutter:
   assets:
     - assets/images/backgrounds/
     - assets/images/cardbacks/
-    - assets/audio/
+    # - assets/audio/

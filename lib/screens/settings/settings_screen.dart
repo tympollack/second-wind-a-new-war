@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/settings_provider.dart';
 import '../../services/supabase_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/metal_panel.dart';
@@ -59,10 +60,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final settings = ref.watch(settingsProvider);
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
     return Scaffold(
-      backgroundColor: AppTheme.darkBg,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: AppTheme.darkSurface,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         title: const Text(
           'ARSENAL',
           style: TextStyle(
@@ -96,7 +100,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   const SizedBox(height: 12),
                   MilitaryButton(
                     label: 'UPDATE',
-                    color: AppTheme.primaryCyan,
+                    color: Theme.of(context).colorScheme.primary,
                     onPressed: () {
                       ref
                           .read(authProvider.notifier)
@@ -107,18 +111,89 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            // Sound settings
+            // Display Settings
+            MetalPanel(
+              title: 'DISPLAY',
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'THEME MODE',
+                        style: TextStyle(
+                          fontFamily: 'RobotoCondensed',
+                          fontSize: 13,
+                          color: AppTheme.metalGray,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      DropdownButton<ThemeMode>(
+                        value: settings.themeMode,
+                        dropdownColor: Theme.of(context).colorScheme.surface,
+                        style: const TextStyle(
+                          fontFamily: 'RobotoCondensed',
+                          color: AppTheme.metalLight,
+                        ),
+                        onChanged: (ThemeMode? newMode) {
+                          if (newMode != null) {
+                            ref
+                                .read(settingsProvider.notifier)
+                                .setThemeMode(newMode);
+                          }
+                        },
+                        items: const [
+                          DropdownMenuItem(
+                            value: ThemeMode.system,
+                            child: Text('System'),
+                          ),
+                          DropdownMenuItem(
+                            value: ThemeMode.light,
+                            child: Text('Light'),
+                          ),
+                          DropdownMenuItem(
+                            value: ThemeMode.dark,
+                            child: Text('Dark'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Feedback settings
+            MetalPanel(
+              title: 'FEEDBACK',
+              child: Column(
+                children: [
+                  _buildToggle(
+                    'HAPTIC FEEDBACK',
+                    settings.hapticsEnabled,
+                    (v) {
+                      ref
+                          .read(settingsProvider.notifier)
+                          .setHapticsEnabled(v);
+                    },
+                    primaryColor,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Audio settings
             MetalPanel(
               title: 'AUDIO',
               child: Column(
                 children: [
                   _buildToggle('SOUND EFFECTS', _soundEnabled, (v) {
                     setState(() => _soundEnabled = v);
-                  }),
+                  }, primaryColor),
                   const SizedBox(height: 8),
                   _buildToggle('MUSIC', _musicEnabled, (v) {
                     setState(() => _musicEnabled = v);
-                  }),
+                  }, primaryColor),
                 ],
               ),
             ),
@@ -153,7 +228,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                           color: isSelected
-                              ? AppTheme.primaryCyan
+                              ? Theme.of(context).colorScheme.primary
                               : AppTheme.metalGray.withValues(alpha: 0.3),
                           width: isSelected ? 2 : 1,
                         ),
@@ -161,7 +236,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         boxShadow: isSelected
                             ? [
                                 BoxShadow(
-                                  color: AppTheme.primaryCyan
+                                  color: Theme.of(context).colorScheme.primary
                                       .withValues(alpha: 0.3),
                                   blurRadius: 8,
                                 ),
@@ -174,7 +249,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           Icon(
                             Icons.style,
                             color: isSelected
-                                ? AppTheme.primaryCyan
+                                ? Theme.of(context).colorScheme.primary
                                 : AppTheme.metalGray,
                             size: 24,
                           ),
@@ -186,7 +261,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
                               color: isSelected
-                                  ? AppTheme.primaryCyan
+                                  ? Theme.of(context).colorScheme.primary
                                   : AppTheme.metalGray,
                             ),
                           ),
@@ -203,7 +278,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  Widget _buildToggle(String label, bool value, ValueChanged<bool> onChanged) {
+  Widget _buildToggle(String label, bool value, ValueChanged<bool> onChanged, Color activeColor) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -219,7 +294,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         Switch(
           value: value,
           onChanged: onChanged,
-          activeTrackColor: AppTheme.primaryCyan,
+          activeTrackColor: activeColor,
         ),
       ],
     );

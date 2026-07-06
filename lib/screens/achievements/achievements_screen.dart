@@ -13,14 +13,30 @@ class AchievementsScreen extends ConsumerStatefulWidget {
   ConsumerState<AchievementsScreen> createState() => _AchievementsScreenState();
 }
 
-class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
+class _AchievementsScreenState extends ConsumerState<AchievementsScreen> with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseController;
+  late final Animation<double> _pulseAnimation;
+
   Set<String> _unlockedIds = {};
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+    _pulseAnimation = Tween<double>(begin: 0.3, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
     _loadAchievements();
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadAchievements() async {
@@ -64,11 +80,11 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
             child: Center(
               child: Text(
                 '${_unlockedIds.length}/${AchievementDefinitions.all.length}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'RobotoCondensed',
                   fontWeight: FontWeight.w700,
                   fontSize: 14,
-                  color: AppTheme.primaryCyan,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
               ),
             ),
@@ -76,8 +92,8 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppTheme.primaryCyan))
+          ? Center(
+              child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))
           : Padding(
               padding: const EdgeInsets.all(16),
               child: GridView.builder(
@@ -99,60 +115,113 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
   }
 
   Widget _buildAchievementCard(Achievement achievement, bool isUnlocked) {
-    return MetalPanel(
-      padding: const EdgeInsets.all(12),
-      child: Opacity(
-        opacity: isUnlocked ? 1.0 : 0.4,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Text(
-                  achievement.icon,
-                  style: const TextStyle(fontSize: 24),
+    return AnimatedBuilder(
+      animation: _pulseAnimation,
+      builder: (context, child) {
+        final glowOpacity = isUnlocked ? _pulseAnimation.value : 0.0;
+        
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              if (isUnlocked)
+                BoxShadow(
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: glowOpacity * 0.4),
+                  blurRadius: 16,
+                  spreadRadius: 2,
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    achievement.name.toUpperCase(),
-                    style: TextStyle(
-                      fontFamily: 'RobotoCondensed',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
-                      color: isUnlocked
-                          ? AppTheme.goldTrump
-                          : AppTheme.metalGray,
-                      letterSpacing: 0.5,
+            ],
+          ),
+          child: MetalPanel(
+            padding: const EdgeInsets.all(2), // Reduced padding so gradient fills
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    isUnlocked ? const Color(0xFF1E1B4B).withValues(alpha: 0.8) : Colors.transparent, // indigo-900 equivalent
+                    isUnlocked ? const Color(0xFF0F172A).withValues(alpha: 0.6) : Colors.transparent, // slate-900
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Opacity(
+                opacity: isUnlocked ? 1.0 : 0.4,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              if (isUnlocked)
+                                BoxShadow(
+                                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+                                  blurRadius: 8,
+                                ),
+                            ],
+                          ),
+                          child: Text(
+                            achievement.icon,
+                            style: const TextStyle(fontSize: 24),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            achievement.name.toUpperCase(),
+                            style: TextStyle(
+                              fontFamily: 'RobotoCondensed',
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                              color: isUnlocked
+                                  ? Theme.of(context).colorScheme.primary
+                                  : AppTheme.metalGray,
+                              letterSpacing: 0.5,
+                              shadows: [
+                                if (isUnlocked)
+                                  Shadow(
+                                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+                                    blurRadius: 4,
+                                  ),
+                              ],
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (isUnlocked)
+                          Icon(
+                            Icons.check_circle,
+                            size: 16,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                      ],
                     ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                    const SizedBox(height: 4),
+                    Flexible(
+                      child: Text(
+                        achievement.description,
+                        style: TextStyle(
+                          fontFamily: 'RobotoCondensed',
+                          fontSize: 11,
+                          color: isUnlocked ? Colors.white70 : AppTheme.metalGray,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
-                if (isUnlocked)
-                  const Icon(
-                    Icons.check_circle,
-                    size: 16,
-                    color: AppTheme.winGreen,
-                  ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Flexible(
-              child: Text(
-                achievement.description,
-                style: const TextStyle(
-                  fontFamily: 'RobotoCondensed',
-                  fontSize: 11,
-                  color: AppTheme.metalGray,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

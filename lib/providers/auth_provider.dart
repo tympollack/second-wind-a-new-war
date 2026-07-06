@@ -1,7 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
 import '../services/device_service.dart';
+import '../services/fcm_service.dart';
+import '../utils/url_handler.dart';
 
 class AuthState {
   final User? user;
@@ -49,11 +52,24 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(deviceId: deviceId);
 
     try {
+      final uri = Uri.base;
+      if (uri.queryParameters.containsKey('access_token') && uri.queryParameters.containsKey('refresh_token')) {
+        final accessToken = uri.queryParameters['access_token']!;
+        final refreshToken = uri.queryParameters['refresh_token']!;
+        
+        await SupabaseService.client.auth.setSession(
+          refreshToken,
+          accessToken: accessToken,
+        );
+        clearUrlParameters();
+      }
+      
       final user = SupabaseService.currentUser;
       if (user != null) {
         final isAnon = user.isAnonymous;
         state = state.copyWith(user: user, isAnonymous: isAnon);
         await _loadProfile(user.id);
+        FcmService.initialize(user.id);
       }
 
       SupabaseService.client.auth.onAuthStateChange.listen((data) {
@@ -62,6 +78,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           final isAnon = user.isAnonymous;
           state = state.copyWith(user: user, isAnonymous: isAnon);
           _loadProfile(user.id);
+          FcmService.initialize(user.id);
         } else {
           state = AuthState(deviceId: state.deviceId);
         }
@@ -78,11 +95,22 @@ class AuthNotifier extends StateNotifier<AuthState> {
         state = state.copyWith(
           displayName: profile['display_name'] as String?,
         );
+      } else {
+        // User profile doesn't exist (e.g. authenticated via deep link from another app).
+        // Upsert a default profile to satisfy foreign key constraints.
+        final user = SupabaseService.currentUser;
+        if (user != null) {
+          final email = user.email ?? 'Unknown';
+          final name = email.contains('@') ? email.split('@')[0] : 'Commander';
+          await SupabaseService.upsertUser(userId, name);
+          state = state.copyWith(displayName: name);
+        }
       }
     } catch (e) {
       // Profile load failed
     }
   }
+
 
   Future<void> signInAnonymously() async {
     state = state.copyWith(isLoading: true, error: null);
@@ -105,6 +133,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         );
       }
     } catch (e) {
+      debugPrint('WSW signInAnonymously error: $e');
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }

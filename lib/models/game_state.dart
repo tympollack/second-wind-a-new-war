@@ -15,6 +15,10 @@ enum RoundResult { p1Wins, p2Wins, tie }
 class GameState {
   List<PlayingCard> p1Deck;
   List<PlayingCard> p2Deck;
+  List<PlayingCard> p1Discard;
+  List<PlayingCard> p2Discard;
+  List<PlayingCard> p1LastTrick;
+  List<PlayingCard> p2LastTrick;
   List<PlayingCard> secondWindDeck;
   bool secondWindUsed;
   String? secondWindRecipient;
@@ -27,6 +31,8 @@ class GameState {
   List<PlayingCard> pot;
   int p1FaceDownCount;
   int p2FaceDownCount;
+  bool p1Ready;
+  bool p2Ready;
   GamePhase phase;
   RoundResult? lastResult;
   String? gameWinner;
@@ -36,10 +42,16 @@ class GameState {
   String? statusBanner;
   String? lastActionBy;
   int lastActionTimestamp;
+  int p1WinStreak;
+  int p2WinStreak;
 
   GameState({
     required this.p1Deck,
     required this.p2Deck,
+    List<PlayingCard>? p1Discard,
+    List<PlayingCard>? p2Discard,
+    List<PlayingCard>? p1LastTrick,
+    List<PlayingCard>? p2LastTrick,
     required this.secondWindDeck,
     this.secondWindUsed = false,
     this.secondWindRecipient,
@@ -52,6 +64,8 @@ class GameState {
     List<PlayingCard>? pot,
     this.p1FaceDownCount = 0,
     this.p2FaceDownCount = 0,
+    this.p1Ready = false,
+    this.p2Ready = false,
     this.phase = GamePhase.idle,
     this.lastResult,
     this.gameWinner,
@@ -61,7 +75,13 @@ class GameState {
     this.statusBanner,
     this.lastActionBy,
     int? lastActionTimestamp,
-  })  : removedByRank = removedByRank ?? {},
+    this.p1WinStreak = 0,
+    this.p2WinStreak = 0,
+  })  : p1Discard = p1Discard ?? [],
+        p2Discard = p2Discard ?? [],
+        p1LastTrick = p1LastTrick ?? [],
+        p2LastTrick = p2LastTrick ?? [],
+        removedByRank = removedByRank ?? {},
         removedCardIds = removedCardIds ?? [],
         pot = pot ?? [],
         lastActionTimestamp =
@@ -75,6 +95,22 @@ class GameState {
       p2Deck: (json['p2Deck'] as List)
           .map((c) => PlayingCard.fromJson(c as Map<String, dynamic>))
           .toList(),
+      p1Discard: (json['p1Discard'] as List?)
+              ?.map((c) => PlayingCard.fromJson(c as Map<String, dynamic>))
+              .toList() ??
+          [],
+      p2Discard: (json['p2Discard'] as List?)
+              ?.map((c) => PlayingCard.fromJson(c as Map<String, dynamic>))
+              .toList() ??
+          [],
+      p1LastTrick: (json['p1LastTrick'] as List?)
+              ?.map((c) => PlayingCard.fromJson(c as Map<String, dynamic>))
+              .toList() ??
+          [],
+      p2LastTrick: (json['p2LastTrick'] as List?)
+              ?.map((c) => PlayingCard.fromJson(c as Map<String, dynamic>))
+              .toList() ??
+          [],
       secondWindDeck: (json['secondWindDeck'] as List)
           .map((c) => PlayingCard.fromJson(c as Map<String, dynamic>))
           .toList(),
@@ -103,6 +139,8 @@ class GameState {
           [],
       p1FaceDownCount: json['p1FaceDownCount'] as int? ?? 0,
       p2FaceDownCount: json['p2FaceDownCount'] as int? ?? 0,
+      p1Ready: json['p1Ready'] as bool? ?? false,
+      p2Ready: json['p2Ready'] as bool? ?? false,
       phase: GamePhase.values.firstWhere(
         (p) => p.name == json['phase'],
         orElse: () => GamePhase.idle,
@@ -121,12 +159,18 @@ class GameState {
       lastActionBy: json['lastActionBy'] as String?,
       lastActionTimestamp: json['lastActionTimestamp'] as int? ??
           DateTime.now().millisecondsSinceEpoch,
+      p1WinStreak: json['p1WinStreak'] as int? ?? 0,
+      p2WinStreak: json['p2WinStreak'] as int? ?? 0,
     );
   }
 
   Map<String, dynamic> toJson() => {
         'p1Deck': p1Deck.map((c) => c.toJson()).toList(),
         'p2Deck': p2Deck.map((c) => c.toJson()).toList(),
+        'p1Discard': p1Discard.map((c) => c.toJson()).toList(),
+        'p2Discard': p2Discard.map((c) => c.toJson()).toList(),
+        'p1LastTrick': p1LastTrick.map((c) => c.toJson()).toList(),
+        'p2LastTrick': p2LastTrick.map((c) => c.toJson()).toList(),
         'secondWindDeck': secondWindDeck.map((c) => c.toJson()).toList(),
         'secondWindUsed': secondWindUsed,
         'secondWindRecipient': secondWindRecipient,
@@ -140,6 +184,8 @@ class GameState {
         'pot': pot.map((c) => c.toJson()).toList(),
         'p1FaceDownCount': p1FaceDownCount,
         'p2FaceDownCount': p2FaceDownCount,
+        'p1Ready': p1Ready,
+        'p2Ready': p2Ready,
         'phase': phase.name,
         'lastResult': lastResult?.name,
         'gameWinner': gameWinner,
@@ -149,6 +195,8 @@ class GameState {
         'statusBanner': statusBanner,
         'lastActionBy': lastActionBy,
         'lastActionTimestamp': lastActionTimestamp,
+        'p1WinStreak': p1WinStreak,
+        'p2WinStreak': p2WinStreak,
       };
 
   GameState copyWith() {

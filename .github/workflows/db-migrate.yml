@@ -1,0 +1,45 @@
+name: DB Migrations
+
+on:
+  push:
+    branches:
+      - staging
+      - master
+    paths:
+      - 'supabase/migrations/**'
+
+jobs:
+  migrate:
+    name: Push migrations to ${{ github.ref == 'refs/heads/master' && 'prod' || 'staging' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Supabase CLI
+        run: npm install -g supabase
+
+      - name: Link to staging and push migrations
+        if: github.ref == 'refs/heads/staging'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase link --project-ref ${{ secrets.SUPABASE_STAGING_PROJECT_REF }}
+          supabase migration list
+          supabase db push --yes
+
+      - name: Link to prod and push migrations
+        if: github.ref == 'refs/heads/master'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase link --project-ref ${{ secrets.SUPABASE_PROD_PROJECT_REF }}
+          supabase migration list
+          supabase db push --yes

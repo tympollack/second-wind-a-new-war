@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
 
 class MilitaryButton extends StatefulWidget {
   final String label;
@@ -46,7 +45,7 @@ class _MilitaryButtonState extends State<MilitaryButton>
 
   @override
   Widget build(BuildContext context) {
-    final color = widget.color ?? AppTheme.primaryRed;
+    final color = widget.color ?? Theme.of(context).colorScheme.primary;
     return AnimatedBuilder(
       animation: _glowAnimation,
       builder: (context, child) {
@@ -93,6 +92,9 @@ class _MilitaryButtonState extends State<MilitaryButton>
                         )
                       : Text(
                           widget.label,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontFamily: 'RobotoCondensed',
                             fontWeight: FontWeight.w700,
