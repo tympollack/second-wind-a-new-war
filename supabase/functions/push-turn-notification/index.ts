@@ -49,7 +49,7 @@ serve(async (req) => {
     // 4. Get the Match to find player IDs
     const matchId = payload.record.match_id;
     const { data: match, error: matchError } = await supabase
-      .schema("war_second_wind")
+      .schema("wsw")
       .from("matches")
       .select("player1_id, player2_id")
       .eq("id", matchId)
@@ -73,7 +73,7 @@ serve(async (req) => {
 
     // 6. Get the FCM Token of the next player
     const { data: user, error: userError } = await supabase
-      .schema("war_second_wind")
+      .schema("wsw")
       .from("users")
       .select("fcm_token")
       .eq("id", nextPlayerId)
