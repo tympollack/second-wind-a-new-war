@@ -38,7 +38,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
   }
 
   Future<void> _launchSunShadeSSO() async {
-    final url = Uri.parse('https://sunshade.icu/login?redirectTo=https://wsw-stag.sunshade.icu');
+    final url = Uri.parse('https://hub.sunshade.icu/?redirectTo=https://wsw-stag.sunshade.icu');
     if (await canLaunchUrl(url)) {
       await launchUrl(
         url,
