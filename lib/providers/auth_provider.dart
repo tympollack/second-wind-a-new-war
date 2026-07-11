@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
 import '../services/device_service.dart';
-import '../services/fcm_service.dart';
+
 import '../utils/url_handler.dart';
 
 class AuthState {
@@ -69,7 +69,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
         final isAnon = user.isAnonymous;
         state = state.copyWith(user: user, isAnonymous: isAnon);
         await _loadProfile(user.id);
-        FcmService.initialize(user.id);
       }
 
       SupabaseService.client.auth.onAuthStateChange.listen((data) {
@@ -78,7 +77,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
           final isAnon = user.isAnonymous;
           state = state.copyWith(user: user, isAnonymous: isAnon);
           _loadProfile(user.id);
-          FcmService.initialize(user.id);
         } else {
           state = AuthState(deviceId: state.deviceId);
         }
@@ -138,47 +136,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  Future<void> signInWithEmail(String email, String password) async {
-    state = state.copyWith(isLoading: true, error: null);
-    try {
-      final response =
-          await SupabaseService.signInWithEmail(email, password);
-      if (response.user != null) {
-        await _loadProfile(response.user!.id);
-        state = state.copyWith(
-          user: response.user,
-          isLoading: false,
-          isAnonymous: false,
-        );
-        await DeviceService.markAccountCreated();
-      }
-    } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
-    }
-  }
 
-  Future<void> signUpWithEmail(
-      String email, String password, String displayName) async {
-    state = state.copyWith(isLoading: true, error: null);
-    try {
-      final response =
-          await SupabaseService.signUpWithEmail(email, password);
-      if (response.user != null) {
-        final name =
-            displayName.isNotEmpty ? displayName : email.split('@')[0];
-        await SupabaseService.upsertUser(response.user!.id, name);
-        state = state.copyWith(
-          user: response.user,
-          displayName: name,
-          isLoading: false,
-          isAnonymous: false,
-        );
-        await DeviceService.markAccountCreated();
-      }
-    } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
-    }
-  }
 
   Future<void> upgradeAnonymousAccount(
       String email, String password, String displayName) async {
