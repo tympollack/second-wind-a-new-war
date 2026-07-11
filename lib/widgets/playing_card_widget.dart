@@ -8,16 +8,20 @@ class PlayingCardWidget extends StatelessWidget {
   final PlayingCard card;
   final GameState gameState;
   final bool isWinner;
+  final bool isBurning;
   final double width;
   final double height;
+  final bool showBadge;
 
   const PlayingCardWidget({
     super.key,
     required this.card,
     required this.gameState,
     this.isWinner = false,
+    this.isBurning = false,
     this.width = 80,
     this.height = 120,
+    this.showBadge = true,
   });
 
   @override
@@ -32,31 +36,29 @@ class PlayingCardWidget extends StatelessWidget {
     switch (status) {
       case CardStatus.joker:
         borderColor = AppTheme.cyanJoker;
-        bgStart = AppTheme.cyanJoker.withValues(alpha: 0.2);
+        bgStart = Color.alphaBlend(AppTheme.cyanJoker.withValues(alpha: 0.3), AppTheme.darkCard);
         bgEnd = AppTheme.darkCard;
         textColor = AppTheme.cyanJoker;
       case CardStatus.musketeer:
         borderColor = AppTheme.purpleMusketeer;
-        bgStart = AppTheme.purpleMusketeer.withValues(alpha: 0.3);
-        bgEnd = AppTheme.purpleMusketeer.withValues(alpha: 0.1);
+        bgStart = Color.alphaBlend(AppTheme.purpleMusketeer.withValues(alpha: 0.4), AppTheme.darkCard);
+        bgEnd = AppTheme.darkCard;
         textColor = Colors.white;
       case CardStatus.trump:
         borderColor = AppTheme.goldTrump;
-        bgStart = AppTheme.goldTrump.withValues(alpha: 0.25);
-        bgEnd = AppTheme.goldTrump.withValues(alpha: 0.08);
+        bgStart = Color.alphaBlend(AppTheme.goldTrump.withValues(alpha: 0.4), AppTheme.darkCard);
+        bgEnd = AppTheme.darkCard;
         textColor = AppTheme.goldTrump;
       case CardStatus.normal:
         borderColor = AppTheme.metalGray;
         bgStart = AppTheme.darkCard;
-        bgEnd = AppTheme.darkCard;
-        textColor = card.isRed ? Colors.red.shade400 : Colors.white;
+        bgEnd = AppTheme.darkBg;
+        textColor = card.isRed ? Colors.red.shade400 : AppTheme.gunmetalGray;
     }
 
-    // Trump cards override suit symbol
+    // Musketeer cards override suit symbol; trump cards keep their real suit (shown in gold via textColor)
     String displaySuit = card.suitSymbol;
-    if (status == CardStatus.trump) {
-      displaySuit = '\u2726'; // diamond star for trump
-    } else if (status == CardStatus.musketeer) {
+    if (status == CardStatus.musketeer) {
       displaySuit = '\u2694'; // crossed swords for musketeer
     }
 
@@ -77,6 +79,18 @@ class PlayingCardWidget extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: borderColor, width: 2),
           boxShadow: [
+            if (isBurning)
+              BoxShadow(
+                color: const Color(0xFFCC5500).withValues(alpha: 0.7),
+                blurRadius: 24,
+                spreadRadius: 6,
+              ),
+            if (isBurning)
+              BoxShadow(
+                color: const Color(0xFFFF8C00).withValues(alpha: 0.4),
+                blurRadius: 8,
+                spreadRadius: 2,
+              ),
             if (isWinner)
               BoxShadow(
                 color: AppTheme.winGreen.withValues(alpha: 0.4),
@@ -97,7 +111,18 @@ class PlayingCardWidget extends StatelessWidget {
           ],
         ),
         child: Stack(
+          clipBehavior: Clip.none,
           children: [
+            // Fire overlay when burning
+            if (isBurning)
+              Positioned.fill(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: CustomPaint(
+                    painter: _FireOverlayPainter(),
+                  ),
+                ),
+              ),
             // Joker electricity effect
             if (status == CardStatus.joker)
               Positioned.fill(
@@ -115,11 +140,12 @@ class PlayingCardWidget extends StatelessWidget {
                     style: TextStyle(
                       fontFamily: 'RobotoCondensed',
                       fontWeight: FontWeight.w900,
-                      fontSize: width * 0.35,
+                      fontSize: width * (card.rankLabel.length > 1 ? 0.28 : 0.35),
                       color: textColor,
                       height: 1,
                     ),
                   ),
+                  SizedBox(height: height * 0.08),
                   Text(
                     displaySuit,
                     style: TextStyle(
@@ -132,44 +158,26 @@ class PlayingCardWidget extends StatelessWidget {
               ),
             ),
 
-            // Winner badge
-            if (isWinner)
-              Positioned(
-                bottom: 2,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppTheme.winGreen,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Text(
-                      'WIN',
-                      style: TextStyle(
-                        fontFamily: 'RobotoCondensed',
-                        fontWeight: FontWeight.w900,
-                        fontSize: 8,
-                        color: Colors.black,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
             // Top-left rank
             Positioned(
               top: 4,
               left: 6,
-              child: Text(
-                card.rankLabel,
-                style: TextStyle(
-                  fontFamily: 'RobotoCondensed',
-                  fontWeight: FontWeight.w700,
-                  fontSize: 10,
-                  color: textColor.withValues(alpha: 0.7),
+              child: SizedBox(
+                width: 18,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    card.rankLabel,
+                    maxLines: 1,
+                    softWrap: false,
+                    style: TextStyle(
+                      fontFamily: 'RobotoCondensed',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 10,
+                      color: textColor.withValues(alpha: 0.7),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -179,13 +187,22 @@ class PlayingCardWidget extends StatelessWidget {
               right: 6,
               child: Transform.rotate(
                 angle: 3.14159,
-                child: Text(
-                  card.rankLabel,
-                  style: TextStyle(
-                    fontFamily: 'RobotoCondensed',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 10,
-                    color: textColor.withValues(alpha: 0.7),
+                child: SizedBox(
+                  width: 18,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      card.rankLabel,
+                      maxLines: 1,
+                      softWrap: false,
+                      style: TextStyle(
+                        fontFamily: 'RobotoCondensed',
+                        fontWeight: FontWeight.w700,
+                        fontSize: 10,
+                        color: textColor.withValues(alpha: 0.7),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -201,12 +218,14 @@ class FaceDownCardWidget extends StatelessWidget {
   final int count;
   final double width;
   final double height;
+  final double spread;
 
   const FaceDownCardWidget({
     super.key,
     required this.count,
     this.width = 60,
     this.height = 90,
+    this.spread = 8.0,
   });
 
   @override
@@ -214,12 +233,12 @@ class FaceDownCardWidget extends StatelessWidget {
     if (count == 0) return const SizedBox.shrink();
     final displayCount = count.clamp(1, 3);
     return SizedBox(
-      width: width + (displayCount - 1) * 8,
+      width: width + (displayCount - 1) * spread,
       height: height,
       child: Stack(
         children: List.generate(displayCount, (i) {
           return Positioned(
-            left: i * 8.0,
+            left: i * spread,
             child: Container(
               width: width,
               height: height,
@@ -228,14 +247,14 @@ class FaceDownCardWidget extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Color(0xFF1A2744),
-                    Color(0xFF0E1829),
+                    Color(0xFF312E81), // indigo-900 equivalent
+                    Color(0xFF111827), // gray-900 equivalent
                   ],
                 ),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: AppTheme.metalGray.withValues(alpha: 0.4),
-                  width: 1.5,
+                  color: AppTheme.metalGray.withValues(alpha: 0.6),
+                  width: 2,
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -251,7 +270,7 @@ class FaceDownCardWidget extends StatelessWidget {
                   style: TextStyle(
                     fontSize: width * 0.4,
                     fontWeight: FontWeight.w900,
-                    color: AppTheme.primaryCyan.withValues(alpha: 0.5),
+                    color: Colors.indigo.shade300,
                   ),
                 ),
               ),
@@ -293,6 +312,47 @@ class _ElectricityPainter extends CustomPainter {
       ..lineTo(size.width * 0.3, size.height);
 
     canvas.drawPath(path2, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _FireOverlayPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Fiery gradient from bottom - warm orange/red flames rising
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    final gradient = LinearGradient(
+      begin: Alignment.bottomCenter,
+      end: Alignment.topCenter,
+      colors: [
+        const Color(0xFFCC5500).withValues(alpha: 0.45),
+        const Color(0xFFFF8C00).withValues(alpha: 0.25),
+        const Color(0xFFFFD700).withValues(alpha: 0.10),
+        Colors.transparent,
+      ],
+      stops: const [0.0, 0.35, 0.65, 1.0],
+    );
+    final paint = Paint()..shader = gradient.createShader(rect);
+    canvas.drawRect(rect, paint);
+
+    // Flame tongue paths on top edge
+    final flamePaint = Paint()
+      ..color = const Color(0xFFFF8C00).withValues(alpha: 0.3)
+      ..style = PaintingStyle.fill;
+
+    final flame1 = Path()
+      ..moveTo(size.width * 0.1, size.height * 0.15)
+      ..quadraticBezierTo(size.width * 0.2, 0, size.width * 0.3, size.height * 0.12)
+      ..quadraticBezierTo(size.width * 0.25, size.height * 0.22, size.width * 0.1, size.height * 0.15);
+    canvas.drawPath(flame1, flamePaint);
+
+    final flame2 = Path()
+      ..moveTo(size.width * 0.55, size.height * 0.1)
+      ..quadraticBezierTo(size.width * 0.7, 0, size.width * 0.82, size.height * 0.14)
+      ..quadraticBezierTo(size.width * 0.72, size.height * 0.25, size.width * 0.55, size.height * 0.1);
+    canvas.drawPath(flame2, flamePaint);
   }
 
   @override

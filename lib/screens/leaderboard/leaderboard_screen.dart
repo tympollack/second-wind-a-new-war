@@ -52,8 +52,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         iconTheme: const IconThemeData(color: AppTheme.metalGray),
       ),
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppTheme.primaryCyan))
+          ? Center(
+              child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))
           : Padding(
               padding: const EdgeInsets.all(16),
               child: MetalPanel(

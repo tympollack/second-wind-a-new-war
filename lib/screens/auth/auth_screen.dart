@@ -50,12 +50,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Background image
-          Image.asset(
-            'assets/images/backgrounds/dark_login.jpg',
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => Container(color: AppTheme.darkBg),
-          ),
+          // Background
+          Container(color: AppTheme.darkBg),
           // Light overlay for form readability
           Container(
             decoration: BoxDecoration(
@@ -167,7 +163,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                             MilitaryButton(
                               label: 'DEPLOY AS GUEST',
                               isLoading: authState.isLoading,
-                              color: AppTheme.primaryCyan,
+                              color: Theme.of(context).colorScheme.primary,
                               onPressed: () {
                                 ref
                                     .read(authProvider.notifier)

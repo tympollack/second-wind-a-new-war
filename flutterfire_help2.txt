@@ -1,0 +1,139 @@
+Configure Firebase for your Flutter app. This command will fetch Firebase
+configuration for you and generate a Dart file with prefilled FirebaseOptions
+you can use.
+
+Usage: flutterfire configure [arguments]
+-h, --help                                            Print this usage
+                                                      information.
+-p, --project=<aliasOrProjectId>                      The Firebase project to
+                                                      use for this command.
+-e, --account=<email>                                 The Google account to use
+                                                      for authorization.
+-d, --[no-]debug                                      Use debug logger for
+                                                      additional output.
+-o, --out=<filePath>                                  The output file path of
+                                                      the Dart file that will be
+                                                      generated with your
+                                                      Firebase configuration
+                                                      options.
+                                                      (defaults to
+                                                      "lib\firebase_options.dart
+                                                      ")
+-y, --yes                                             Skip the Y/n confirmation
+                                                      prompts and accept default
+                                                      options (such as detected
+                                                      platforms).
+    --platforms=<platforms>                           Optionally specify the
+                                                      platforms to generate
+                                                      configuration options for
+                                                      as a comma separated list.
+                                                      For example
+                                                      "android,ios,macos,web,lin
+                                                      ux,windows".
+-i, --ios-bundle-id=<bundleIdentifier>                The bundle identifier of
+                                                      your iOS app, e.g.
+                                                      "com.example.app". If no
+                                                      identifier is provided
+                                                      then an attempt will be
+                                                      made to automatically
+                                                      detect it from your "ios"
+                                                      folder (if it exists).
+-m, --macos-bundle-id=<bundleIdentifier>              The bundle identifier of
+                                                      your macOS app, e.g.
+                                                      "com.example.app". If no
+                                                      identifier is provided
+                                                      then an attempt will be
+                                                      made to automatically
+                                                      detect it from your
+                                                      "macos" folder (if it
+                                                      exists).
+    --android-app-id=<applicationId>                  DEPRECATED - use
+                                                      "android-package-name"
+                                                      instead. The application
+                                                      id of your Android app,
+                                                      e.g. "com.example.app". If
+                                                      no identifier is provided
+                                                      then an attempt will be
+                                                      made to automatically
+                                                      detect it from your
+                                                      "android" folder (if it
+                                                      exists)
+-a, --android-package-name=<packageName>              The package name of your
+                                                      Android app, e.g.
+                                                      "com.example.app". If no
+                                                      package name is provided
+                                                      then an attempt will be
+                                                      made to automatically
+                                                      detect it from your
+                                                      "android" folder (if it
+                                                      exists).
+-w, --web-app-id=<appId>                              The app id of your Web
+                                                      application, e.g.
+                                                      "1:XXX:web:YYY". If no app
+                                                      id is provided then an
+                                                      attempt will be made to
+                                                      automatically pick the
+                                                      first available web app id
+                                                      from remote. If no web app
+                                                      exists, we create a web
+                                                      app and suffix the name
+                                                      with "(web)"
+-x, --windows-app-id=<windowsAppId>                   The app id of your Windows
+                                                      application, e.g.
+                                                      "1:XXX:web:YYY". If no app
+                                                      id is provided then an
+                                                      attempt will be made to
+                                                      automatically pick the
+                                                      first available windows
+                                                      app id from remote. If no
+                                                      windows app exists, we
+                                                      create a web app for
+                                                      Windows platform. We
+                                                      suffix the name with
+                                                      "(windows)"
+-t, --token=<firebaseToken>                           The token generated by
+                                                      running `firebase
+                                                      login:ci`
+    --service-account=<serviceAccount>                The path to a Google
+                                                      service account JSON file,
+                                                      used for authentication
+    --ios-build-config=<iosBuildConfiguration>        Name of iOS build
+                                                      configuration to use for
+                                                      bundling
+                                                      `Google-Service-Info.plist
+                                                      ` with your Xcode project
+    --macos-build-config=<macosBuildConfiguration>    Name of macOS build
+                                                      configuration to use for
+                                                      bundling
+                                                      `Google-Service-Info.plist
+                                                      ` with your Xcode project
+    --ios-target=<iosTargetName>                      Name of iOS target to use
+                                                      for bundling
+                                                      `Google-Service-Info.plist
+                                                      ` with your Xcode project
+    --macos-target=<macosTargetName>                  Name of macOS target to
+                                                      use for bundling
+                                                      `Google-Service-Info.plist
+                                                      ` with your Xcode project
+    --ios-out=<pathForIosConfig>                      Where to write the
+                                                      `Google-Service-Info.plist
+                                                      ` file for iOS platform.
+                                                      Useful for different
+                                                      flavors
+    --macos-out=<pathForMacosConfig>                  Where to write the
+                                                      `Google-Service-Info.plist
+                                                      ` file to be written for
+                                                      macOS platform. Useful for
+                                                      different flavors
+    --android-out=<pathForAndroidConfig>              Where to write the
+                                                      `google-services.json`
+                                                      file to be written for
+                                                      android platform. Useful
+                                                      for different flavors
+-f, --[no-]overwrite-firebase-options                 Rewrite the service file
+                                                      if you're running
+                                                      'flutterfire configure'
+                                                      again due to updating
+                                                      project
+
+Run "flutterfire help" to see global options.
