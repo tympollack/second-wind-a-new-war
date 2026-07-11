@@ -34,7 +34,6 @@ migrate_working_dir/
 /coverage/
 /android/
 /ios/
-/web/
 /windows/
 /linux/
 /macos/
