@@ -1,7 +1,8 @@
-import 'package:web/web.dart' as web;
+// ignore: deprecated_member_use
+import 'dart:html' as html;
 
 Future<String?> getSsoSessionJson(String projectRef) async {
-  final cookieString = web.document.cookie;
+  final cookieString = html.document.cookie ?? '';
   final prefix = 'sb-$projectRef-auth-token';
   
   // Try single cookie first
