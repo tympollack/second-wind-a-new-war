@@ -9,6 +9,7 @@ class AppTheme {
   static const Color darkSurface = Color(0xFF1A2332);
   static const Color metalGray = Color(0xFF8B95A8);
   static const Color metalLight = Color(0xFFC5CDD9);
+  static const Color gunmetalGray = Color(0xFF9AA5B1);
   static const Color goldTrump = Color(0xFFFFD700);
   static const Color purpleMusketeer = Color(0xFF9B59B6);
   static const Color cyanJoker = Color(0xFF00D4FF);

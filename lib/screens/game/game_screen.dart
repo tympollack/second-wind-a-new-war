@@ -25,7 +25,6 @@ class _GameScreenState extends ConsumerState<GameScreen>
   late AnimationController _warAnimController;
   late Animation<double> _warPulse;
   late AnimationController _collectAnimController;
-  late Animation<double> _collectAnimation;
   late AnimationController _pulseAnimController;
   late Animation<double> _pulseAnimation;
   late AnimationController _fireAnimController;
@@ -38,6 +37,8 @@ class _GameScreenState extends ConsumerState<GameScreen>
   
   bool _isAutoPlay = false;
   bool _isWarDelaying = false;
+  String? _localStatusBanner;
+  int _statusBannerToken = 0;
 
   @override
   void initState() {
@@ -53,10 +54,6 @@ class _GameScreenState extends ConsumerState<GameScreen>
     _collectAnimController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 400),
-    );
-    _collectAnimation = CurvedAnimation(
-      parent: _collectAnimController,
-      curve: Curves.easeIn,
     );
     _collectAnimController.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
@@ -167,6 +164,23 @@ class _GameScreenState extends ConsumerState<GameScreen>
       gameProvider.select((state) => state.gameState),
       (previous, current) {
         if (current == null) return;
+        // Latch status banner messages (e.g. shuffle notices) locally so they
+        // stay visible for a fixed duration instead of vanishing the instant
+        // the synced state advances again (statusBanner is reset every turn).
+        if (current.statusBanner != null &&
+            current.statusBanner != previous?.statusBanner) {
+          final token = ++_statusBannerToken;
+          setState(() {
+            _localStatusBanner = current.statusBanner;
+          });
+          Future.delayed(const Duration(seconds: 3), () {
+            if (mounted && token == _statusBannerToken) {
+              setState(() {
+                _localStatusBanner = null;
+              });
+            }
+          });
+        }
         // Check for warResult transition
         if (previous?.phase != GamePhase.warResult && current.phase == GamePhase.warResult) {
           setState(() {
@@ -272,13 +286,21 @@ class _GameScreenState extends ConsumerState<GameScreen>
             // Main battle area with Stack and AnimatedAlign
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _buildMainGameArea(gs, playerNum, showCards, isP1Win, isP2Win, isWar, p1DeckCount, p2DeckCount, p1FaceDown, p2FaceDown),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AppTheme.darkSurface.withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppTheme.metalGray.withValues(alpha: 0.12)),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: _buildMainGameArea(gs, playerNum, showCards, isP1Win, isP2Win, isWar, p1DeckCount, p2DeckCount, p1FaceDown, p2FaceDown),
+                ),
               ),
             ),
             // Status banner
-            if (gs.statusBanner != null && !hasCollected)
-              _buildStatusBanner(gs.statusBanner!),
+            if (_localStatusBanner != null && !hasCollected)
+              _buildStatusBanner(_localStatusBanner!),
             // Action area
             _buildActionArea(gs, isGameOver, userId, playerNum),
           ],
@@ -423,17 +445,29 @@ class _GameScreenState extends ConsumerState<GameScreen>
                   if (gs.p1WinStreak >= 3)
                     Padding(
                       padding: const EdgeInsets.only(right: 6),
-                      child: Text(
-                        '🔥×${gs.p1WinStreak}',
-                        style: const TextStyle(fontSize: 12),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.local_fire_department, size: 14, color: Color(0xFFFF8C00)),
+                          Text(
+                            '×${gs.p1WinStreak}',
+                            style: const TextStyle(fontSize: 12, color: Color(0xFFFF8C00)),
+                          ),
+                        ],
                       ),
                     ),
                   if (gs.p2WinStreak >= 3)
                     Padding(
                       padding: const EdgeInsets.only(right: 6),
-                      child: Text(
-                        '🔥×${gs.p2WinStreak}',
-                        style: const TextStyle(fontSize: 12),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.local_fire_department, size: 14, color: Color(0xFFFF8C00)),
+                          Text(
+                            '×${gs.p2WinStreak}',
+                            style: const TextStyle(fontSize: 12, color: Color(0xFFFF8C00)),
+                          ),
+                        ],
                       ),
                     ),
                   GestureDetector(
@@ -525,51 +559,56 @@ class _GameScreenState extends ConsumerState<GameScreen>
       musketeersDead = removedMuskCount >= 4;
     }
 
+    final chips = <Widget>[
+      if (gs.trumpSuit != null) _buildTrumpChip(gs.trumpSuit!),
+      if (gs.muskRank != null)
+        _buildInfoChip(
+          iconData: musketeersDead ? Icons.dangerous : null,
+          icon: musketeersDead ? null : '\u2694',
+          value: musketeersDead ? 'DESTROYED' : _rankLabel(gs.muskRank!),
+          color: AppTheme.purpleMusketeer,
+        ),
+      if (gs.pot.isNotEmpty)
+        _buildInfoChip(
+          iconData: Icons.style,
+          value: '${gs.pot.length}',
+          color: Colors.orange,
+        ),
+      if (gs.removedCardIds.isNotEmpty)
+        _buildInfoChip(
+          icon: '\u2620',
+          value: '${gs.removedCardIds.length}',
+          color: AppTheme.metalGray,
+        ),
+      if (!gs.secondWindUsed && gs.secondWindDeck.isNotEmpty)
+        _buildInfoChip(
+          iconData: Icons.air,
+          value: '2W',
+          color: AppTheme.winGreen,
+        ),
+      if (gs.secondWindUsed)
+        _buildInfoChip(
+          iconData: Icons.wb_sunny_outlined,
+          value: '2W SPENT',
+          color: AppTheme.metalGray,
+        ),
+    ];
+
+    if (chips.isEmpty) return const SizedBox.shrink();
+
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 24),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.darkSurface.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.metalGray.withValues(alpha: 0.15)),
+      ),
       child: Wrap(
         alignment: WrapAlignment.center,
-        spacing: 16,
+        spacing: 10,
         runSpacing: 8,
-        children: [
-          if (gs.trumpSuit != null)
-            _buildInfoChip(
-              icon: '\u2726',
-              value: gs.trumpSuit!.name.toUpperCase(),
-              color: AppTheme.goldTrump,
-            ),
-          if (gs.muskRank != null)
-            _buildInfoChip(
-              icon: '\u2694',
-              value: musketeersDead ? '💀' : 'MUSK: ${_rankLabel(gs.muskRank!)}',
-              color: AppTheme.purpleMusketeer,
-            ),
-          if (gs.pot.isNotEmpty)
-            _buildInfoChip(
-              icon: '\u2660',
-              value: '${gs.pot.length} in pot',
-              color: Colors.orange,
-            ),
-          if (gs.removedCardIds.isNotEmpty)
-            _buildInfoChip(
-              icon: '\u2620',
-              value: '${gs.removedCardIds.length} BURNED',
-              color: AppTheme.metalGray,
-            ),
-          // Second Wind in the status bar
-          if (!gs.secondWindUsed && gs.secondWindDeck.isNotEmpty)
-            _buildInfoChip(
-              icon: '💨',
-              value: '2W: ${gs.secondWindDeck.length}',
-              color: AppTheme.winGreen,
-            ),
-          if (gs.secondWindUsed)
-            _buildInfoChip(
-              icon: '☀',
-              value: '2W SPENT',
-              color: AppTheme.metalGray,
-            ),
-        ],
+        children: chips,
       ),
     );
   }
@@ -584,30 +623,74 @@ class _GameScreenState extends ConsumerState<GameScreen>
     }
   }
 
+  String _suitSymbol(Suit suit) {
+    switch (suit) {
+      case Suit.spades: return '\u2660';
+      case Suit.hearts: return '\u2665';
+      case Suit.diamonds: return '\u2666';
+      case Suit.clubs: return '\u2663';
+    }
+  }
+
+  Widget _buildTrumpChip(Suit suit) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppTheme.goldTrump.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppTheme.goldTrump.withValues(alpha: 0.35)),
+      ),
+      child: SizedBox(
+        height: 15,
+        child: Text(
+          _suitSymbol(suit),
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+            color: AppTheme.goldTrump,
+            height: 1,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildInfoChip({
-    required String icon,
+    String? icon,
+    IconData? iconData,
     required String value,
     required Color color,
   }) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          icon,
-          style: TextStyle(fontSize: 18, color: color),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          value,
-          style: TextStyle(
-            fontFamily: 'RobotoCondensed',
-            fontWeight: FontWeight.w700,
-            fontSize: 14,
-            color: color,
-            letterSpacing: 0.5,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (iconData != null)
+            Icon(iconData, size: 15, color: color)
+          else if (icon != null)
+            Text(
+              icon,
+              style: TextStyle(fontSize: 15, color: color),
+            ),
+          const SizedBox(width: 6),
+          Text(
+            value,
+            style: TextStyle(
+              fontFamily: 'RobotoCondensed',
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              color: color,
+              letterSpacing: 0.5,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -692,13 +775,13 @@ class _GameScreenState extends ConsumerState<GameScreen>
     );
 
     Widget discardWidget = SizedBox(
-      width: 60 + (lastTrick.length > 1 ? (lastTrick.length - 1) * 15.0 : 0.0),
+      width: 60 + (lastTrick.length > 1 ? (lastTrick.length - 1) * 32.0 : 0.0),
       height: 84,
       child: lastTrick.isNotEmpty
           ? Stack(
               children: List.generate(lastTrick.length, (index) {
                 return Positioned(
-                  left: index * 15.0,
+                  left: index * 32.0,
                   child: PlayingCardWidget(
                     card: lastTrick[index],
                     gameState: gs,
@@ -706,6 +789,7 @@ class _GameScreenState extends ConsumerState<GameScreen>
                     isBurning: false,
                     width: 60,
                     height: 84,
+                    showBadge: false,
                   ),
                 );
               }),
@@ -790,6 +874,7 @@ class _GameScreenState extends ConsumerState<GameScreen>
             isBurning: false,
             width: 60,
             height: 90,
+            showBadge: false,
           ),
         );
       }).toList(),
@@ -801,8 +886,8 @@ class _GameScreenState extends ConsumerState<GameScreen>
       bool isWar, int p1DeckCount, int p2DeckCount, int p1FaceDown, int p2FaceDown) {
 
     // Calculate alignments
-    final p1Ready = gs.p1Ready || showCards;
-    final p2Ready = gs.p2Ready || showCards;
+    final p1Ready = gs.p1Ready || showCards || gs.phase == GamePhase.warPending;
+    final p2Ready = gs.p2Ready || showCards || gs.phase == GamePhase.warPending;
     
     // P1 Battle Card Alignment
     Alignment p1Align = Alignment.centerLeft;
@@ -810,7 +895,7 @@ class _GameScreenState extends ConsumerState<GameScreen>
       if (_isCollecting) {
         p1Align = _lastWinner == RoundResult.p1Wins ? Alignment.centerLeft : Alignment.centerRight;
       } else {
-        p1Align = const Alignment(-0.08, 0); // Fanned slightly left
+        p1Align = const Alignment(-0.35, 0); // Fanned slightly left
       }
     }
 
@@ -820,7 +905,7 @@ class _GameScreenState extends ConsumerState<GameScreen>
       if (_isCollecting) {
         p2Align = _lastWinner == RoundResult.p1Wins ? Alignment.centerLeft : Alignment.centerRight;
       } else {
-        p2Align = const Alignment(0.08, 0); // Fanned slightly right
+        p2Align = const Alignment(0.35, 0); // Fanned slightly right
       }
     }
 
@@ -830,7 +915,7 @@ class _GameScreenState extends ConsumerState<GameScreen>
       if (_isCollecting) {
         p1WarAlign = _lastWinner == RoundResult.p1Wins ? Alignment.centerLeft : Alignment.centerRight;
       } else {
-        p1WarAlign = const Alignment(-0.25, 0);
+        p1WarAlign = const Alignment(-0.6, 0);
       }
     }
 
@@ -840,12 +925,13 @@ class _GameScreenState extends ConsumerState<GameScreen>
       if (_isCollecting) {
         p2WarAlign = _lastWinner == RoundResult.p1Wins ? Alignment.centerLeft : Alignment.centerRight;
       } else {
-        p2WarAlign = const Alignment(0.25, 0);
+        p2WarAlign = const Alignment(0.6, 0);
       }
     }
 
     final p1Card = gs.p1BattleCard;
     final p2Card = gs.p2BattleCard;
+    final perspectiveReason = _buildPerspectiveReason(gs, playerNum);
 
     return Stack(
       alignment: Alignment.center,
@@ -854,11 +940,11 @@ class _GameScreenState extends ConsumerState<GameScreen>
         Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (gs.roundReason != null && !_isCollecting)
+            if (perspectiveReason != null && !_isCollecting)
               Padding(
                 padding: const EdgeInsets.only(bottom: 120),
                 child: Text(
-                  gs.roundReason!,
+                  perspectiveReason,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontFamily: 'RobotoCondensed',
@@ -902,55 +988,47 @@ class _GameScreenState extends ConsumerState<GameScreen>
             ),
           ),
 
-        // P1 Battle Card
-        if (p1Ready)
-          AnimatedAlign(
-            duration: const Duration(milliseconds: 400),
-            curve: Curves.easeOutQuart,
-            alignment: p1Align,
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 300),
-              opacity: _isCollecting ? 0.0 : 1.0,
-              child: showCards && p1Card != null
-                  ? Transform.rotate(
-                      angle: -0.05,
-                      child: PlayingCardWidget(
-                        card: p1Card,
-                        gameState: gs,
-                        isWinner: isP1Win,
-                        isBurning: gs.p1WinStreak >= 3,
-                        width: 80,
-                        height: 120,
-                      ),
-                    )
-                  : const FaceDownCardWidget(count: 1, width: 80, height: 120),
-            ),
+        // P1 Battle Card (always mounted so alignment animates deck -> battlefield)
+        AnimatedAlign(
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOutQuart,
+          alignment: p1Align,
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 300),
+            opacity: (p1Ready && !_isCollecting) ? 1.0 : 0.0,
+            child: showCards && p1Card != null
+                ? PlayingCardWidget(
+                    card: p1Card,
+                    gameState: gs,
+                    isWinner: isP1Win,
+                    isBurning: gs.p1WinStreak >= 3,
+                    width: 80,
+                    height: 120,
+                  )
+                : const FaceDownCardWidget(count: 1, width: 80, height: 120),
           ),
+        ),
 
-        // P2 Battle Card
-        if (p2Ready)
-          AnimatedAlign(
-            duration: const Duration(milliseconds: 400),
-            curve: Curves.easeOutQuart,
-            alignment: p2Align,
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 300),
-              opacity: _isCollecting ? 0.0 : 1.0,
-              child: showCards && p2Card != null
-                  ? Transform.rotate(
-                      angle: 0.05,
-                      child: PlayingCardWidget(
-                        card: p2Card,
-                        gameState: gs,
-                        isWinner: isP2Win,
-                        isBurning: gs.p2WinStreak >= 3,
-                        width: 80,
-                        height: 120,
-                      ),
-                    )
-                  : const FaceDownCardWidget(count: 1, width: 80, height: 120),
-            ),
+        // P2 Battle Card (always mounted so alignment animates deck -> battlefield)
+        AnimatedAlign(
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOutQuart,
+          alignment: p2Align,
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 300),
+            opacity: (p2Ready && !_isCollecting) ? 1.0 : 0.0,
+            child: showCards && p2Card != null
+                ? PlayingCardWidget(
+                    card: p2Card,
+                    gameState: gs,
+                    isWinner: isP2Win,
+                    isBurning: gs.p2WinStreak >= 3,
+                    width: 80,
+                    height: 120,
+                  )
+                : const FaceDownCardWidget(count: 1, width: 80, height: 120),
           ),
+        ),
 
         // Left Deck
         Align(
@@ -979,6 +1057,32 @@ class _GameScreenState extends ConsumerState<GameScreen>
     );
   }
 
+  // Builds a per-viewer sentence: my card first, verb depends on whether
+  // I won ("beats") or lost ("loses to"), followed by the opponent's card.
+  String? _buildPerspectiveReason(GameState gs, int playerNum) {
+    final result = gs.lastResult;
+    if (result == null) return null;
+    if (result == RoundResult.tie) {
+      return (gs.roundReason != null && gs.roundReason!.isNotEmpty)
+          ? gs.roundReason
+          : 'Equal rank \u2014 WAR!';
+    }
+    final myCard = playerNum == 1 ? gs.p1BattleCard : gs.p2BattleCard;
+    final oppCard = playerNum == 1 ? gs.p2BattleCard : gs.p1BattleCard;
+    if (myCard == null || oppCard == null) return null;
+
+    final iWon = (result == RoundResult.p1Wins && playerNum == 1) ||
+        (result == RoundResult.p2Wins && playerNum == 2);
+    final verb = iWon ? 'beats' : 'loses to';
+    final base = '${myCard.rankLabel} $verb ${oppCard.rankLabel}';
+
+    final suffix = gs.roundReason;
+    if (suffix != null && suffix.isNotEmpty) {
+      return '$base \u2014 $suffix';
+    }
+    return base;
+  }
+
   Widget _buildBattleIndicator(bool isWar) {
     if (isWar) {
       return AnimatedBuilder(
@@ -1000,20 +1104,6 @@ class _GameScreenState extends ConsumerState<GameScreen>
         fontSize: 18,
         color: AppTheme.metalGray.withValues(alpha: 0.5),
         letterSpacing: 2,
-      ),
-    );
-  }
-
-  Widget _buildEmptySlot() {
-    return Container(
-      width: 80,
-      height: 120,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppTheme.metalGray.withValues(alpha: 0.2),
-          width: 2,
-        ),
       ),
     );
   }

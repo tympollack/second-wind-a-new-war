@@ -3,7 +3,7 @@ class HubApiConfig {
 
   /// Development Hub environment. Override at build time with:
   /// flutter run --dart-define=HUB_API_BASE_URL=https://your-env/api/
-  static const _fallbackDevUrl = 'https://hub-dev.madeintheshade.wtf/api/';
+  static const _fallbackDevUrl = 'https://hub-stag.sunshade.icu/api/';
 
   static String get baseUrl => _envBaseUrl.isNotEmpty ? _envBaseUrl : _fallbackDevUrl;
 }

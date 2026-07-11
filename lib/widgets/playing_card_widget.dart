@@ -11,6 +11,7 @@ class PlayingCardWidget extends StatelessWidget {
   final bool isBurning;
   final double width;
   final double height;
+  final bool showBadge;
 
   const PlayingCardWidget({
     super.key,
@@ -20,6 +21,7 @@ class PlayingCardWidget extends StatelessWidget {
     this.isBurning = false,
     this.width = 80,
     this.height = 120,
+    this.showBadge = true,
   });
 
   @override
@@ -34,50 +36,30 @@ class PlayingCardWidget extends StatelessWidget {
     switch (status) {
       case CardStatus.joker:
         borderColor = AppTheme.cyanJoker;
-        bgStart = AppTheme.cyanJoker.withValues(alpha: 0.3);
+        bgStart = Color.alphaBlend(AppTheme.cyanJoker.withValues(alpha: 0.3), AppTheme.darkCard);
         bgEnd = AppTheme.darkCard;
         textColor = AppTheme.cyanJoker;
       case CardStatus.musketeer:
         borderColor = AppTheme.purpleMusketeer;
-        bgStart = AppTheme.purpleMusketeer.withValues(alpha: 0.4);
+        bgStart = Color.alphaBlend(AppTheme.purpleMusketeer.withValues(alpha: 0.4), AppTheme.darkCard);
         bgEnd = AppTheme.darkCard;
         textColor = Colors.white;
       case CardStatus.trump:
         borderColor = AppTheme.goldTrump;
-        bgStart = AppTheme.goldTrump.withValues(alpha: 0.4);
+        bgStart = Color.alphaBlend(AppTheme.goldTrump.withValues(alpha: 0.4), AppTheme.darkCard);
         bgEnd = AppTheme.darkCard;
         textColor = AppTheme.goldTrump;
       case CardStatus.normal:
         borderColor = AppTheme.metalGray;
         bgStart = AppTheme.darkCard;
         bgEnd = AppTheme.darkBg;
-        textColor = card.isRed ? Colors.red.shade400 : Colors.white;
+        textColor = card.isRed ? Colors.red.shade400 : AppTheme.gunmetalGray;
     }
 
-    // Trump cards override suit symbol
+    // Musketeer cards override suit symbol; trump cards keep their real suit (shown in gold via textColor)
     String displaySuit = card.suitSymbol;
-    if (status == CardStatus.trump) {
-      displaySuit = '\u2726'; // diamond star for trump
-    } else if (status == CardStatus.musketeer) {
+    if (status == CardStatus.musketeer) {
       displaySuit = '\u2694'; // crossed swords for musketeer
-    }
-
-    String? statusBadgeLabel;
-    Color? statusBadgeBg;
-    Color? statusBadgeText;
-
-    if (status == CardStatus.trump) {
-      statusBadgeLabel = 'TRUMP';
-      statusBadgeBg = AppTheme.goldTrump;
-      statusBadgeText = Colors.black;
-    } else if (status == CardStatus.musketeer) {
-      statusBadgeLabel = 'MUSK';
-      statusBadgeBg = AppTheme.purpleMusketeer;
-      statusBadgeText = Colors.white;
-    } else if (status == CardStatus.joker) {
-      statusBadgeLabel = 'JOKER';
-      statusBadgeBg = AppTheme.cyanJoker;
-      statusBadgeText = Colors.black;
     }
 
     return AnimatedScale(
@@ -158,11 +140,12 @@ class PlayingCardWidget extends StatelessWidget {
                     style: TextStyle(
                       fontFamily: 'RobotoCondensed',
                       fontWeight: FontWeight.w900,
-                      fontSize: width * 0.35,
+                      fontSize: width * (card.rankLabel.length > 1 ? 0.28 : 0.35),
                       color: textColor,
                       height: 1,
                     ),
                   ),
+                  SizedBox(height: height * 0.08),
                   Text(
                     displaySuit,
                     style: TextStyle(
@@ -175,70 +158,26 @@ class PlayingCardWidget extends StatelessWidget {
               ),
             ),
 
-            // Winner badge
-            if (isWinner)
-              Positioned(
-                bottom: -8,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppTheme.winGreen,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Text(
-                      'WIN',
-                      style: TextStyle(
-                        fontFamily: 'RobotoCondensed',
-                        fontWeight: FontWeight.w900,
-                        fontSize: 10,
-                        color: Colors.black,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
-            // Status Badge
-            if (statusBadgeLabel != null)
-              Positioned(
-                top: -8,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: statusBadgeBg,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      statusBadgeLabel,
-                      style: TextStyle(
-                        fontFamily: 'RobotoCondensed',
-                        fontWeight: FontWeight.w900,
-                        fontSize: 9,
-                        color: statusBadgeText,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
             // Top-left rank
             Positioned(
               top: 4,
               left: 6,
-              child: Text(
-                card.rankLabel,
-                style: TextStyle(
-                  fontFamily: 'RobotoCondensed',
-                  fontWeight: FontWeight.w700,
-                  fontSize: 10,
-                  color: textColor.withValues(alpha: 0.7),
+              child: SizedBox(
+                width: 18,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    card.rankLabel,
+                    maxLines: 1,
+                    softWrap: false,
+                    style: TextStyle(
+                      fontFamily: 'RobotoCondensed',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 10,
+                      color: textColor.withValues(alpha: 0.7),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -248,13 +187,22 @@ class PlayingCardWidget extends StatelessWidget {
               right: 6,
               child: Transform.rotate(
                 angle: 3.14159,
-                child: Text(
-                  card.rankLabel,
-                  style: TextStyle(
-                    fontFamily: 'RobotoCondensed',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 10,
-                    color: textColor.withValues(alpha: 0.7),
+                child: SizedBox(
+                  width: 18,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      card.rankLabel,
+                      maxLines: 1,
+                      softWrap: false,
+                      style: TextStyle(
+                        fontFamily: 'RobotoCondensed',
+                        fontWeight: FontWeight.w700,
+                        fontSize: 10,
+                        color: textColor.withValues(alpha: 0.7),
+                      ),
+                    ),
                   ),
                 ),
               ),

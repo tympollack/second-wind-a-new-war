@@ -29,13 +29,10 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   bool _isLoading = false;
   Map<String, dynamic>? _waitingMatch;
   RealtimeChannel? _matchChannel;
-  Timer? _botTimer;
   int _waitSeconds = 0;
   Timer? _countdownTimer;
   List<Map<String, dynamic>> _onlineUsers = [];
   List<Map<String, dynamic>> _userMatches = [];
-
-  static const _botTimeoutSeconds = 15;
 
   RealtimeChannel? _presenceChannel;
 
@@ -60,7 +57,6 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     _joinCodeController.dispose();
     _matchChannel?.unsubscribe();
     _presenceChannel?.unsubscribe();
-    _botTimer?.cancel();
     _countdownTimer?.cancel();
     super.dispose();
   }
@@ -124,14 +120,13 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
         (updated) {
           if (updated['status'] == 'in_progress' &&
               updated['player2_id'] != null) {
-            _botTimer?.cancel();
             _countdownTimer?.cancel();
             _navigateToGame(updated['id'] as String);
           }
         },
       );
 
-      _startBotCountdown(match['id'] as String, userId);
+      _startCountup(match['id'] as String);
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -179,7 +174,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     }
   }
 
-  void _startBotCountdown(String matchId, String userId) {
+  void _startCountup(String matchId) {
     _waitSeconds = 0;
     _countdownTimer?.cancel();
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
@@ -194,17 +189,11 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
         try {
           final match = await SupabaseService.getMatch(matchId);
           if (match != null && match['player2_id'] != null) {
-            _botTimer?.cancel();
             _countdownTimer?.cancel();
             _navigateToGame(matchId);
           }
         } catch (_) {}
       }
-    });
-
-    _botTimer?.cancel();
-    _botTimer = Timer(const Duration(seconds: _botTimeoutSeconds), () {
-      _startBotGame(matchId, userId);
     });
   }
 
@@ -218,7 +207,10 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       _navigateToBotGame(matchId, botName);
     } catch (e) {
       if (mounted) {
-        setState(() => _error = 'Failed to start bot match');
+        setState(() {
+          _error = 'Failed to start bot match: $e';
+          _waitingMatch = null;
+        });
       }
     }
   }
@@ -243,10 +235,34 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     }
   }
 
+  String _formatElapsed(int seconds) {
+    final m = seconds ~/ 60;
+    final s = seconds % 60;
+    if (m > 0) return '${m}m ${s.toString().padLeft(2, '0')}s';
+    return '${s}s';
+  }
+
+  Future<void> _instantBotGame() async {
+    final userId = ref.read(authProvider).user?.id;
+    if (userId == null) return;
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final match = await SupabaseService.createMatch(userId);
+      await _startBotGame(match['id'] as String, userId);
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _error = 'Failed to start bot game: $e';
+      });
+    }
+  }
+
   Future<void> _cancelWaiting() async {
     if (_waitingMatch == null) return;
     _matchChannel?.unsubscribe();
-    _botTimer?.cancel();
     _countdownTimer?.cancel();
     await SupabaseService.deleteMatch(_waitingMatch!['id'] as String);
     setState(() {
@@ -515,18 +531,33 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  _waitSeconds < _botTimeoutSeconds
-                      ? 'Searching for opponent... ${_botTimeoutSeconds - _waitSeconds}s'
-                      : 'Matching with opponent...',
+                  'Searching for opponent... ${_formatElapsed(_waitSeconds)}',
                   style: const TextStyle(color: AppTheme.metalGray, fontSize: 14),
                 ),
               ],
             ),
             const SizedBox(height: 24),
-            MilitaryButton(
-              label: 'CANCEL',
-              color: AppTheme.metalGray,
-              onPressed: _cancelWaiting,
+            Row(
+              children: [
+                Expanded(
+                  child: MilitaryButton(
+                    label: 'PLAY VS BOT',
+                    color: AppTheme.metalGray,
+                    onPressed: () {
+                      final userId = ref.read(authProvider).user?.id;
+                      if (userId != null) _startBotGame(_waitingMatch!['id'] as String, userId);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: MilitaryButton(
+                    label: 'CANCEL',
+                    color: AppTheme.warRed,
+                    onPressed: _cancelWaiting,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -607,11 +638,10 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
             ),
           ],
           const SizedBox(height: 24),
-          // Find Match button
           MilitaryButton(
-            label: 'FIND MATCH',
+            label: 'PLAY VS BOT',
             isLoading: _isLoading,
-            onPressed: _createGame,
+            onPressed: _instantBotGame,
             width: double.infinity,
           ),
 

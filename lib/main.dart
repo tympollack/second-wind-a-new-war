@@ -11,6 +11,8 @@ import 'providers/auth_provider.dart';
 import 'providers/settings_provider.dart';
 import 'screens/auth/auth_screen.dart';
 import 'screens/lobby/lobby_screen.dart';
+import 'dart:convert';
+import 'utils/sso/sso_cookie.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,6 +31,38 @@ void main() async {
       // ignore: deprecated_member_use
       anonKey: SupabaseConfig.anonKey,
     );
+
+    if (kIsWeb) {
+      try {
+        final uri = Uri.parse(SupabaseConfig.url);
+        final projectRef = uri.host.split('.').first;
+        final sessionJsonStr = await getSsoSessionJson(projectRef);
+        
+        if (sessionJsonStr != null) {
+          String decoded = sessionJsonStr;
+          if (!sessionJsonStr.startsWith('{') && !sessionJsonStr.startsWith('[')) {
+            // Assume base64url encoded
+            decoded = utf8.decode(base64Url.decode(base64Url.normalize(sessionJsonStr)));
+          }
+          final dynamic data = jsonDecode(decoded);
+          String? refreshToken;
+          if (data is List && data.length > 1) {
+            refreshToken = data[1]?.toString();
+          } else if (data is Map) {
+            refreshToken = data['refresh_token']?.toString();
+          }
+          
+          if (refreshToken != null) {
+            final auth = Supabase.instance.client.auth;
+            if (auth.currentSession == null) {
+               await auth.setSession(refreshToken);
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('SSO Cookie parsing error: $e');
+      }
+    }
   } catch (e) {
     debugPrint('Supabase init error: $e');
   }

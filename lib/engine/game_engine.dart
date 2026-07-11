@@ -57,6 +57,11 @@ RoundResult _compareCards(PlayingCard a, PlayingCard b, Suit? trumpSuit,
   return a.rank > b.rank ? RoundResult.p1Wins : RoundResult.p2Wins;
 }
 
+// Returns a neutral reason string with no player/perspective framing.
+// For a tie this is the full display text (symmetric for both players).
+// Otherwise this is just an optional special-condition suffix (e.g. "Joker
+// beats all!"); the perspective-based sentence ("K beats 3" / "3 loses to K")
+// is built client-side per viewer in the UI.
 String _buildReason(PlayingCard p1, PlayingCard p2, RoundResult result,
     Suit? trumpSuit, int? muskRank, Map<int, int> removedByRank) {
   if (result == RoundResult.tie) return 'Equal rank \u2014 WAR!';
@@ -71,7 +76,7 @@ String _buildReason(PlayingCard p1, PlayingCard p2, RoundResult result,
       !winner.isJoker) {
     return 'Trump suit wins!';
   }
-  return '${winner.rankName} beats ${loser.rankName}';
+  return '';
 }
 
 void _maybeSetTrump(GameState state) {
@@ -185,6 +190,12 @@ GameState _startWar(GameState state) {
     _refillIfEmpty(state, 2);
     if (state.p2Deck.isNotEmpty) state.pot.add(state.p2Deck.removeAt(0));
   }
+
+  // The tied cards that triggered the war have been burned; clear them so
+  // the UI shows a fresh face-down placeholder instead of the old cards
+  // while players wait to flip their war cards.
+  state.p1BattleCard = null;
+  state.p2BattleCard = null;
 
   state.phase = GamePhase.warPending;
   return state;
