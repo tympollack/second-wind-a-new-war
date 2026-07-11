@@ -1,5 +1,7 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/military_button.dart';
@@ -13,10 +15,6 @@ class AuthScreen extends ConsumerStatefulWidget {
 
 class _AuthScreenState extends ConsumerState<AuthScreen>
     with SingleTickerProviderStateMixin {
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _nameController = TextEditingController();
-  bool _isSignUp = false;
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
 
@@ -35,11 +33,25 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
 
   @override
   void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    _nameController.dispose();
     _fadeController.dispose();
     super.dispose();
+  }
+
+  Future<void> _launchSunShadeSSO() async {
+    final url = Uri.parse('https://sunshade.icu/login?redirectTo=https://wsw-stag.sunshade.icu');
+    if (await canLaunchUrl(url)) {
+      await launchUrl(
+        url,
+        webOnlyWindowName: '_self',
+      );
+    }
+  }
+
+  Future<void> _launchURL(String urlString) async {
+    final url = Uri.parse(urlString);
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url);
+    }
   }
 
   @override
@@ -75,106 +87,93 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Spacer to push form below the background title
                       const SizedBox(height: 120),
-
-                      // Auth form
                       SizedBox(
                         width: 320,
                         child: Column(
                           children: [
-                            if (_isSignUp) ...[
-                              _buildTextField(
-                                controller: _nameController,
-                                hint: 'COMMANDER NAME',
-                                icon: Icons.person_outline,
-                              ),
-                              const SizedBox(height: 12),
-                            ],
-                            _buildTextField(
-                              controller: _emailController,
-                              hint: 'COMMANDER ID',
-                              icon: Icons.email_outlined,
-                              keyboardType: TextInputType.emailAddress,
-                            ),
-                            const SizedBox(height: 12),
-                            _buildTextField(
-                              controller: _passwordController,
-                              hint: 'ACCESS CODE',
-                              icon: Icons.lock_outline,
-                              obscureText: true,
-                            ),
-                            const SizedBox(height: 24),
-                            MilitaryButton(
-                              label: 'DEPLOY',
-                              isLoading: authState.isLoading,
-                              onPressed: _handleEmailAuth,
-                              width: double.infinity,
-                            ),
-                            const SizedBox(height: 12),
-                            TextButton(
-                              onPressed: () {
-                                setState(() => _isSignUp = !_isSignUp);
-                              },
-                              child: Text(
-                                _isSignUp
-                                    ? 'EXISTING COMMANDER? SIGN IN'
-                                    : 'NEW RECRUIT? SIGN UP',
+                            RichText(
+                              textAlign: TextAlign.center,
+                              text: TextSpan(
                                 style: TextStyle(
                                   fontFamily: 'RobotoCondensed',
                                   fontSize: 12,
-                                  color:
-                                      AppTheme.metalGray.withValues(alpha: 0.7),
-                                  letterSpacing: 1,
+                                  color: AppTheme.metalGray,
+                                  height: 1.5,
                                 ),
+                                children: [
+                                  const TextSpan(
+                                    text: 'By continuing, you agree to the\n',
+                                  ),
+                                  TextSpan(
+                                    text: 'EULA',
+                                    style: const TextStyle(
+                                      color: AppTheme.primaryCyan,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                    recognizer: TapGestureRecognizer()
+                                      ..onTap = () => _launchURL('https://sunshade.icu/eula'),
+                                  ),
+                                  const TextSpan(text: ' and '),
+                                  TextSpan(
+                                    text: 'Privacy Policy',
+                                    style: const TextStyle(
+                                      color: AppTheme.primaryCyan,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                    recognizer: TapGestureRecognizer()
+                                      ..onTap = () => _launchURL('https://sunshade.icu/privacy'),
+                                  ),
+                                  const TextSpan(text: '.'),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 24),
+                            MilitaryButton(
+                              label: 'LOGIN VIA SUNSHADE HUB',
+                              isLoading: authState.isLoading,
+                              onPressed: _launchSunShadeSSO,
+                              width: double.infinity,
+                            ),
+                            const SizedBox(height: 24),
                             Row(
                               children: [
                                 Expanded(
                                   child: Divider(
-                                    color: AppTheme.metalGray
-                                        .withValues(alpha: 0.3),
+                                    color: AppTheme.metalGray.withValues(alpha: 0.3),
                                   ),
                                 ),
                                 Padding(
-                                  padding:
-                                      const EdgeInsets.symmetric(horizontal: 12),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12),
                                   child: Text(
                                     'OR',
                                     style: TextStyle(
                                       fontFamily: 'RobotoCondensed',
                                       fontSize: 12,
-                                      color: AppTheme.metalGray
-                                          .withValues(alpha: 0.5),
+                                      color: AppTheme.metalGray.withValues(alpha: 0.5),
                                     ),
                                   ),
                                 ),
                                 Expanded(
                                   child: Divider(
-                                    color: AppTheme.metalGray
-                                        .withValues(alpha: 0.3),
+                                    color: AppTheme.metalGray.withValues(alpha: 0.3),
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 24),
                             MilitaryButton(
                               label: 'DEPLOY AS GUEST',
                               isLoading: authState.isLoading,
                               color: Theme.of(context).colorScheme.primary,
                               onPressed: () {
-                                ref
-                                    .read(authProvider.notifier)
-                                    .signInAnonymously();
+                                ref.read(authProvider.notifier).signInAnonymously();
                               },
                               width: double.infinity,
                             ),
                           ],
                         ),
                       ),
-
                       if (authState.error != null) ...[
                         const SizedBox(height: 16),
                         Text(
@@ -195,42 +194,5 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
         ],
       ),
     );
-  }
-
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String hint,
-    required IconData icon,
-    bool obscureText = false,
-    TextInputType? keyboardType,
-  }) {
-    return TextField(
-      controller: controller,
-      obscureText: obscureText,
-      keyboardType: keyboardType,
-      style: const TextStyle(
-        fontFamily: 'RobotoCondensed',
-        color: AppTheme.metalLight,
-        letterSpacing: 1,
-      ),
-      decoration: InputDecoration(
-        hintText: hint,
-        prefixIcon: Icon(icon, color: AppTheme.metalGray.withValues(alpha: 0.5)),
-      ),
-    );
-  }
-
-  void _handleEmailAuth() {
-    final email = _emailController.text.trim();
-    final password = _passwordController.text.trim();
-    if (email.isEmpty || password.isEmpty) return;
-
-    if (_isSignUp) {
-      ref
-          .read(authProvider.notifier)
-          .signUpWithEmail(email, password, _nameController.text.trim());
-    } else {
-      ref.read(authProvider.notifier).signInWithEmail(email, password);
-    }
   }
 }
