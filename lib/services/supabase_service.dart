@@ -22,15 +22,11 @@ class SupabaseService {
   }
 
   // User profile
-  static Future<void> upsertUser(String id, String displayName,
-      {String? deviceId}) async {
+  static Future<void> upsertUser(String id, String displayName) async {
     final data = <String, dynamic>{
       'id': id,
       'display_name': displayName,
     };
-    if (deviceId != null) {
-      data['device_id'] = deviceId;
-    }
     await client.schema('wsw').from('users').upsert(data);
   }
 
@@ -74,11 +70,15 @@ class SupabaseService {
         .single();
 
     final initialState = createInitialGameState();
-    await client.schema('wsw').from('game_states').insert({
+    final stateResult = await client.schema('wsw').from('game_states').insert({
       'match_id': response['id'],
       'state': initialState.toJson(),
       'version': 0,
-    });
+    }).select();
+
+    if (stateResult.isEmpty) {
+      throw Exception('Failed to create game state record');
+    }
 
     return response;
   }
@@ -89,21 +89,12 @@ class SupabaseService {
     }).eq('id', matchId);
   }
 
-  static Future<Map<String, dynamic>?> findMatch(String joinCode) async {
-    return client
-        .schema('wsw')
-        .from('matches')
-        .select()
-        .eq('join_code', joinCode.toUpperCase().trim())
-        .eq('status', 'waiting')
-        .maybeSingle();
-  }
-
-  static Future<void> joinMatch(String matchId, String playerId) async {
-    await client.schema('wsw').from('matches').update({
-      'player2_id': playerId,
-      'status': 'in_progress',
-    }).eq('id', matchId);
+  static Future<String> joinMatchByCode(String joinCode, String playerId) async {
+    final response = await client.schema('wsw').rpc('join_match_by_code', params: {
+      'join_code_param': joinCode,
+      'player_id_param': playerId,
+    });
+    return response as String;
   }
 
   static Future<Map<String, dynamic>?> getMatch(String matchId) async {
