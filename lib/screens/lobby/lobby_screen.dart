@@ -147,29 +147,16 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     });
 
     try {
-      final match = await SupabaseService.findMatch(code);
-      if (match == null) {
-        setState(() {
-          _isLoading = false;
-          _error = 'Game not found or already started';
-        });
-        return;
-      }
-
-      if (match['player1_id'] == userId) {
-        setState(() {
-          _isLoading = false;
-          _error = 'Cannot join your own game';
-        });
-        return;
-      }
-
-      await SupabaseService.joinMatch(match['id'] as String, userId);
-      _navigateToGame(match['id'] as String);
+      final matchId = await SupabaseService.joinMatchByCode(code, userId);
+      _navigateToGame(matchId);
     } catch (e) {
+      String errorMessage = 'Failed to join game';
+      if (e is Exception) {
+        errorMessage = e.toString().replaceAll('Exception: ', '');
+      }
       setState(() {
         _isLoading = false;
-        _error = 'Failed to join game';
+        _error = errorMessage;
       });
     }
   }

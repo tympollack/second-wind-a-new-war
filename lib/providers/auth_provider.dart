@@ -120,7 +120,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
         await SupabaseService.upsertUser(
           response.user!.id,
           name,
-          deviceId: deviceId,
         );
         state = state.copyWith(
           user: response.user,
