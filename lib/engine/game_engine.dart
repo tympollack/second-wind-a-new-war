@@ -8,6 +8,8 @@ GameState createInitialGameState() {
     p1Deck: allCards.sublist(0, 18),
     p2Deck: allCards.sublist(18, 36),
     secondWindDeck: allCards.sublist(36, 54),
+    p1MaxCardsHeld: 18,
+    p2MaxCardsHeld: 18,
   );
 }
 
@@ -159,6 +161,10 @@ GameState _playRound(GameState state) {
 
 GameState _startWar(GameState state) {
   state.warDepth++;
+  state.warsTriggered++;
+  if (state.warDepth > state.maxWarChainDepth) {
+    state.maxWarChainDepth = state.warDepth;
+  }
 
   if (state.p1BattleCard != null) {
     _removeCardFromGame(state, state.p1BattleCard!);
@@ -255,14 +261,44 @@ GameState _awardPot(GameState state) {
   final isP1Win = state.lastResult == RoundResult.p1Wins;
   final winnerDiscard = isP1Win ? state.p1Discard : state.p2Discard;
   final loserNum = isP1Win ? 2 : 1;
+  final wasWar = state.warDepth > 0;
 
-  // Track win streaks
+  // Track win streaks and round wins
   if (isP1Win) {
     state.p1WinStreak++;
     state.p2WinStreak = 0;
+    state.p1RoundsWon++;
   } else {
     state.p2WinStreak++;
     state.p1WinStreak = 0;
+    state.p2RoundsWon++;
+  }
+
+  // Track wars won
+  if (wasWar) {
+    if (isP1Win) {
+      state.p1WarsWon++;
+    } else {
+      state.p2WarsWon++;
+    }
+  }
+
+  // Track trump-win streaks (consecutive round wins by trump-card advantage)
+  final winnerCard = isP1Win ? state.p1BattleCard : state.p2BattleCard;
+  final wonByTrump =
+      winnerCard != null && getCardStatus(winnerCard, state) == CardStatus.trump;
+  if (isP1Win) {
+    state.p1TrumpStreak = wonByTrump ? state.p1TrumpStreak + 1 : 0;
+    state.p2TrumpStreak = 0;
+    if (state.p1TrumpStreak > state.p1MaxTrumpStreak) {
+      state.p1MaxTrumpStreak = state.p1TrumpStreak;
+    }
+  } else {
+    state.p2TrumpStreak = wonByTrump ? state.p2TrumpStreak + 1 : 0;
+    state.p1TrumpStreak = 0;
+    if (state.p2TrumpStreak > state.p2MaxTrumpStreak) {
+      state.p2MaxTrumpStreak = state.p2TrumpStreak;
+    }
   }
 
   // Ensure the won card (loser's card) is on top of the discard pile
@@ -291,6 +327,16 @@ GameState _awardPot(GameState state) {
   state.lastResult = null;
   state.p1FaceDownCount = 0;
   state.p2FaceDownCount = 0;
+
+  // Track peak card counts and low-card thresholds for both players
+  final p1Total = state.p1Deck.length + state.p1Discard.length;
+  final p2Total = state.p2Deck.length + state.p2Discard.length;
+  if (p1Total > state.p1MaxCardsHeld) state.p1MaxCardsHeld = p1Total;
+  if (p2Total > state.p2MaxCardsHeld) state.p2MaxCardsHeld = p2Total;
+  if (p1Total <= 5) state.p1WasLowCards = true;
+  if (p2Total <= 5) state.p2WasLowCards = true;
+  if (p1Total <= 1) state.p1WasOneCard = true;
+  if (p2Total <= 1) state.p2WasOneCard = true;
 
   final loserDeck = isP1Win ? state.p2Deck : state.p1Deck;
   final loserDiscard = isP1Win ? state.p2Discard : state.p1Discard;

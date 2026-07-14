@@ -44,6 +44,24 @@ class GameState {
   int lastActionTimestamp;
   int p1WinStreak;
   int p2WinStreak;
+  int p1RoundsWon;
+  int p2RoundsWon;
+
+  // ── Achievement / stat tracking (persisted for the lifetime of a match) ──
+  int warsTriggered;
+  int p1WarsWon;
+  int p2WarsWon;
+  int maxWarChainDepth;
+  int p1MaxCardsHeld;
+  int p2MaxCardsHeld;
+  bool p1WasLowCards;
+  bool p2WasLowCards;
+  bool p1WasOneCard;
+  bool p2WasOneCard;
+  int p1TrumpStreak;
+  int p2TrumpStreak;
+  int p1MaxTrumpStreak;
+  int p2MaxTrumpStreak;
 
   GameState({
     required this.p1Deck,
@@ -77,6 +95,22 @@ class GameState {
     int? lastActionTimestamp,
     this.p1WinStreak = 0,
     this.p2WinStreak = 0,
+    this.p1RoundsWon = 0,
+    this.p2RoundsWon = 0,
+    this.warsTriggered = 0,
+    this.p1WarsWon = 0,
+    this.p2WarsWon = 0,
+    this.maxWarChainDepth = 0,
+    this.p1MaxCardsHeld = 0,
+    this.p2MaxCardsHeld = 0,
+    this.p1WasLowCards = false,
+    this.p2WasLowCards = false,
+    this.p1WasOneCard = false,
+    this.p2WasOneCard = false,
+    this.p1TrumpStreak = 0,
+    this.p2TrumpStreak = 0,
+    this.p1MaxTrumpStreak = 0,
+    this.p2MaxTrumpStreak = 0,
   })  : p1Discard = p1Discard ?? [],
         p2Discard = p2Discard ?? [],
         p1LastTrick = p1LastTrick ?? [],
@@ -161,6 +195,22 @@ class GameState {
           DateTime.now().millisecondsSinceEpoch,
       p1WinStreak: json['p1WinStreak'] as int? ?? 0,
       p2WinStreak: json['p2WinStreak'] as int? ?? 0,
+      p1RoundsWon: json['p1RoundsWon'] as int? ?? 0,
+      p2RoundsWon: json['p2RoundsWon'] as int? ?? 0,
+      warsTriggered: json['warsTriggered'] as int? ?? 0,
+      p1WarsWon: json['p1WarsWon'] as int? ?? 0,
+      p2WarsWon: json['p2WarsWon'] as int? ?? 0,
+      maxWarChainDepth: json['maxWarChainDepth'] as int? ?? 0,
+      p1MaxCardsHeld: json['p1MaxCardsHeld'] as int? ?? 0,
+      p2MaxCardsHeld: json['p2MaxCardsHeld'] as int? ?? 0,
+      p1WasLowCards: json['p1WasLowCards'] as bool? ?? false,
+      p2WasLowCards: json['p2WasLowCards'] as bool? ?? false,
+      p1WasOneCard: json['p1WasOneCard'] as bool? ?? false,
+      p2WasOneCard: json['p2WasOneCard'] as bool? ?? false,
+      p1TrumpStreak: json['p1TrumpStreak'] as int? ?? 0,
+      p2TrumpStreak: json['p2TrumpStreak'] as int? ?? 0,
+      p1MaxTrumpStreak: json['p1MaxTrumpStreak'] as int? ?? 0,
+      p2MaxTrumpStreak: json['p2MaxTrumpStreak'] as int? ?? 0,
     );
   }
 
@@ -197,6 +247,22 @@ class GameState {
         'lastActionTimestamp': lastActionTimestamp,
         'p1WinStreak': p1WinStreak,
         'p2WinStreak': p2WinStreak,
+        'p1RoundsWon': p1RoundsWon,
+        'p2RoundsWon': p2RoundsWon,
+        'warsTriggered': warsTriggered,
+        'p1WarsWon': p1WarsWon,
+        'p2WarsWon': p2WarsWon,
+        'maxWarChainDepth': maxWarChainDepth,
+        'p1MaxCardsHeld': p1MaxCardsHeld,
+        'p2MaxCardsHeld': p2MaxCardsHeld,
+        'p1WasLowCards': p1WasLowCards,
+        'p2WasLowCards': p2WasLowCards,
+        'p1WasOneCard': p1WasOneCard,
+        'p2WasOneCard': p2WasOneCard,
+        'p1TrumpStreak': p1TrumpStreak,
+        'p2TrumpStreak': p2TrumpStreak,
+        'p1MaxTrumpStreak': p1MaxTrumpStreak,
+        'p2MaxTrumpStreak': p2MaxTrumpStreak,
       };
 
   GameState copyWith() {
