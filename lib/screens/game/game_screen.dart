@@ -114,8 +114,9 @@ class _GameScreenState extends ConsumerState<GameScreen>
     if (userId == null ||
         gs.phase == GamePhase.gameOver ||
         _isWarDelaying ||
-        _isCollecting)
+        _isCollecting) {
       return;
+    }
 
     final playerNum = ref.read(gameProvider).playerNum;
     final isReady =

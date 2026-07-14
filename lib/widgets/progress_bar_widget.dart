@@ -7,8 +7,6 @@ class GameProgressBar extends StatefulWidget {
   final int p1Discard;
   final int p2Discard;
   final int removedCards;
-  final int? lastP1Cards;
-  final int? lastP2Cards;
   final int? lastP1Total;
   final int? lastP2Total;
 
@@ -19,8 +17,6 @@ class GameProgressBar extends StatefulWidget {
     required this.p1Discard,
     required this.p2Discard,
     required this.removedCards,
-    this.lastP1Cards,
-    this.lastP2Cards,
     this.lastP1Total,
     this.lastP2Total,
   });
@@ -94,11 +90,8 @@ class _GameProgressBarState extends State<GameProgressBar>
         ? (p2Total - widget.lastP2Total!).clamp(0, totalSegments)
         : 0;
 
-    // Fallback to the old deck-only logic when totals are not supplied.
-    final p1Gained =
-        widget.lastP1Cards != null && widget.p1Cards > widget.lastP1Cards!;
-    final p1Lost =
-        widget.lastP1Cards != null && widget.p1Cards < widget.lastP1Cards!;
+    // Total-based deltas for red/green flashes.
+    final p1Lost = widget.lastP1Total != null && p1Total < widget.lastP1Total!;
 
     return AnimatedBuilder(
       animation: Listenable.merge([_flashAnimation, _pulseAnimation]),
@@ -127,7 +120,6 @@ class _GameProgressBarState extends State<GameProgressBar>
                 pulseValue: _pulseAnimation.value,
                 p1GainedAmount: p1GainedAmount,
                 p2GainedAmount: p2GainedAmount,
-                p1Gained: p1Gained,
                 p1Lost: p1Lost,
                 p1LowCards: p1Total < 5,
                 p2LowCards: p2Total < 5,
@@ -151,7 +143,6 @@ class _ProgressBarPainter extends CustomPainter {
   final double pulseValue;
   final int p1GainedAmount;
   final int p2GainedAmount;
-  final bool p1Gained;
   final bool p1Lost;
   final bool p1LowCards;
   final bool p2LowCards;
@@ -167,7 +158,6 @@ class _ProgressBarPainter extends CustomPainter {
     required this.pulseValue,
     required this.p1GainedAmount,
     required this.p2GainedAmount,
-    required this.p1Gained,
     required this.p1Lost,
     required this.p1LowCards,
     required this.p2LowCards,
