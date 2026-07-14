@@ -36,6 +36,88 @@ class SupabaseService {
     return response;
   }
 
+  /// Returns the user profile with fresh stats computed from match/game state
+  /// history. If the `users` table is missing any stats columns, the computed
+  /// values are still returned so the UI can display them.
+  static Future<Map<String, dynamic>?> getUserStats(
+    String id, {
+    List<Map<String, dynamic>>? summaries,
+    Map<String, dynamic>? user,
+  }) async {
+    final userData = user ?? await getUser(id);
+    final matchSummaries = summaries ?? await getUserMatchSummaries(id);
+
+    int wins = 0;
+    int losses = 0;
+    int gamesPlayed = 0;
+    int warsTriggered = 0;
+    int secondWindsUsed = 0;
+
+    for (final s in matchSummaries) {
+      if (s['status'] == 'completed') {
+        gamesPlayed++;
+        final winnerId = s['winner_id'] as String?;
+        if (winnerId == id) {
+          wins++;
+        } else {
+          losses++;
+        }
+      }
+      warsTriggered += (s['wars_triggered'] as int? ?? 0);
+      if (s['second_wind_used'] == true) secondWindsUsed++;
+    }
+
+    final stats = {
+      'wins': wins,
+      'losses': losses,
+      'games_played': gamesPlayed,
+      'wars_triggered': warsTriggered,
+      'second_winds_used': secondWindsUsed,
+    };
+
+    if (userData == null) return stats;
+
+    final merged = Map<String, dynamic>.from(userData);
+    for (final entry in stats.entries) {
+      final existing = merged[entry.key];
+      if (existing == null || (existing is int && entry.value > existing)) {
+        merged[entry.key] = entry.value;
+      }
+    }
+    return merged;
+  }
+
+  /// Recomputes a user's stats from the database and writes them back to the
+  /// `users` row. This keeps the strategy screen and leaderboard in sync
+  /// without requiring dedicated RPC functions.
+  static Future<void> refreshUserStats(
+    String userId, {
+    List<Map<String, dynamic>>? summaries,
+    Map<String, dynamic>? user,
+  }) async {
+    final stats = await getUserStats(userId, summaries: summaries, user: user);
+    if (stats == null) return;
+
+    try {
+      await client.schema('wsw').from('users').update({
+        'wins': stats['wins'],
+        'losses': stats['losses'],
+      }).eq('id', userId);
+    } catch (e) {
+      debugPrint('refreshUserStats wins/losses update failed: $e');
+    }
+
+    try {
+      await client.schema('wsw').from('users').update({
+        'games_played': stats['games_played'],
+        'wars_triggered': stats['wars_triggered'],
+        'second_winds_used': stats['second_winds_used'],
+      }).eq('id', userId);
+    } catch (e) {
+      debugPrint('refreshUserStats extra stats update failed: $e');
+    }
+  }
+
   static Future<void> updateDisplayName(String id, String name) async {
     await client.schema('wsw').from('users').update({'display_name': name}).eq('id', id);
   }
@@ -158,12 +240,85 @@ class SupabaseService {
     }
   }
 
-  /// Marks a match as completed and records the winner + finish timestamp.
-  /// Call this AFTER recording any achievements but BEFORE final UI navigation.
-  static Future<void> finishMatch(String matchId, String winnerId) async {
+  /// Lightweight cross-match summary used for game/player-scope achievement
+  /// checks (distinct opponents, daily/weekly play streaks, peak card counts)
+  /// without the display-name enrichment `getUserMatches` performs.
+  static Future<List<Map<String, dynamic>>> getUserMatchSummaries(
+      String userId) async {
+    try {
+      final rows = await client
+          .schema('wsw')
+          .from('matches')
+          .select('id, status, created_at, winner_id, player1_id, player2_id')
+          .or('player1_id.eq.$userId,player2_id.eq.$userId');
+
+      final matchIds = rows.map((r) => r['id'] as String).toList();
+      final gameStateMap = <String, Map<String, dynamic>>{};
+      if (matchIds.isNotEmpty) {
+        final gsRows = await client
+            .schema('wsw')
+            .from('game_states')
+            .select('match_id, state')
+            .inFilter('match_id', matchIds);
+        for (final row in gsRows) {
+          final matchId = row['match_id'] as String?;
+          if (matchId != null) {
+            gameStateMap[matchId] = row['state'] as Map<String, dynamic>? ?? {};
+          }
+        }
+      }
+
+      final summaries = <Map<String, dynamic>>[];
+      for (final row in rows) {
+        final p1Id = row['player1_id'] as String?;
+        final isP1 = p1Id == userId;
+        final opponentId =
+            isP1 ? row['player2_id'] as String? : row['player1_id'] as String?;
+
+        final stateJson = gameStateMap[row['id'] as String] ?? {};
+        final maxCardsHeld = isP1
+            ? stateJson['p1MaxCardsHeld'] as int? ?? 0
+            : stateJson['p2MaxCardsHeld'] as int? ?? 0;
+        final warsTriggered = stateJson['warsTriggered'] as int? ?? 0;
+        final secondWindUsed = stateJson['secondWindUsed'] as bool? ?? false;
+        final secondWindRecipient = stateJson['secondWindRecipient'] as String?;
+        final userGotSecondWind = secondWindUsed &&
+            ((isP1 && secondWindRecipient == 'Player 1') ||
+                (!isP1 && secondWindRecipient == 'Player 2'));
+
+        summaries.add({
+          'match_id': row['id'],
+          'status': row['status'],
+          'created_at': row['created_at'],
+          'winner_id': row['winner_id'],
+          'opponent_id': opponentId,
+          'max_cards_held': maxCardsHeld,
+          'wars_triggered': warsTriggered,
+          'second_wind_used': userGotSecondWind,
+        });
+      }
+      return summaries;
+    } catch (e) {
+      debugPrint('getUserMatchSummaries error: $e');
+      return [];
+    }
+  }
+
+  /// Marks a match as completed and records the winner. This makes the match
+  /// visible to stat/achievement queries (which rely on `status` and
+  /// `winner_id`) without yet closing the time window for medals.
+  static Future<void> completeMatch(String matchId, String? winnerId) async {
     await client.schema('wsw').from('matches').update({
       'status': 'completed',
       'winner_id': winnerId,
+    }).eq('id', matchId);
+  }
+
+  /// Closes the match by writing the finish timestamp. Call this AFTER all
+  /// achievements have been unlocked so `finished_at` is later than every
+  /// `unlocked_at` written during the match.
+  static Future<void> finalizeMatch(String matchId) async {
+    await client.schema('wsw').from('matches').update({
       'finished_at': DateTime.now().toUtc().toIso8601String(),
     }).eq('id', matchId);
   }
@@ -221,6 +376,47 @@ class SupabaseService {
     await client.schema('wsw').rpc('increment_losses', params: {'user_id_param': userId});
   }
 
+  /// Increments the user's completed-games counter. Requires an
+  /// `increment_games_played(user_id_param uuid)` RPC function in the `wsw`
+  /// schema (mirrors `increment_wins`/`increment_losses`).
+  static Future<void> incrementGamesPlayed(String userId) async {
+    try {
+      await client
+          .schema('wsw')
+          .rpc('increment_games_played', params: {'user_id_param': userId});
+    } catch (e) {
+      debugPrint('increment_games_played RPC failed: $e');
+    }
+  }
+
+  /// Increments the user's total wars-triggered counter by [count].
+  /// Requires an `increment_wars_triggered(user_id_param uuid, amount_param
+  /// int)` RPC function in the `wsw` schema.
+  static Future<void> incrementWarsTriggered(String userId, int count) async {
+    if (count <= 0) return;
+    try {
+      await client.schema('wsw').rpc('increment_wars_triggered', params: {
+        'user_id_param': userId,
+        'amount_param': count,
+      });
+    } catch (e) {
+      debugPrint('increment_wars_triggered RPC failed: $e');
+    }
+  }
+
+  /// Increments the user's second-winds-used counter. Requires an
+  /// `increment_second_winds(user_id_param uuid)` RPC function in the `wsw`
+  /// schema.
+  static Future<void> incrementSecondWindsUsed(String userId) async {
+    try {
+      await client
+          .schema('wsw')
+          .rpc('increment_second_winds', params: {'user_id_param': userId});
+    } catch (e) {
+      debugPrint('increment_second_winds RPC failed: $e');
+    }
+  }
+
   static Future<List<Map<String, dynamic>>> getLeaderboard() async {
     return client
         .schema('wsw')
@@ -233,19 +429,58 @@ class SupabaseService {
   // Achievements
   static Future<List<Map<String, dynamic>>> getUserAchievements(
       String userId) async {
-    return client
+    final rows = await client
         .schema('wsw')
         .from('user_achievements')
         .select()
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .order('unlocked_at', ascending: true, nullsFirst: false);
+    final seen = <String>{};
+    final result = <Map<String, dynamic>>[];
+    for (final row in rows) {
+      final id = row['achievement_id'] as String?;
+      if (id == null || seen.contains(id)) continue;
+      seen.add(id);
+      result.add(row);
+    }
+    return result;
   }
 
   static Future<void> unlockAchievement(
       String userId, String achievementId) async {
-    await client.schema('wsw').from('user_achievements').upsert({
-      'user_id': userId,
-      'achievement_id': achievementId,
-    });
+    final now = DateTime.now().toUtc().toIso8601String();
+    try {
+      final existing = await client
+          .schema('wsw')
+          .from('user_achievements')
+          .select('unlocked_at')
+          .eq('user_id', userId)
+          .eq('achievement_id', achievementId)
+          .maybeSingle();
+
+      if (existing == null) {
+        await client.schema('wsw').from('user_achievements').upsert(
+          {
+            'user_id': userId,
+            'achievement_id': achievementId,
+            'unlocked_at': now,
+          },
+          ignoreDuplicates: true,
+        );
+      }
+
+      // Stamp any rows (including duplicates from previous upserts) that are
+      // missing the unlocked_at timestamp.
+      await client
+          .schema('wsw')
+          .from('user_achievements')
+          .update({'unlocked_at': now})
+          .eq('user_id', userId)
+          .eq('achievement_id', achievementId)
+          .isFilter('unlocked_at', null);
+    } catch (e) {
+      debugPrint('unlockAchievement error: $e');
+    }
   }
 
   // Online users

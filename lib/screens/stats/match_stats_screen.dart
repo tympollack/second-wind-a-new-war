@@ -124,8 +124,10 @@ class _MatchStatsScreenState extends ConsumerState<MatchStatsScreen>
     final isFinished = _match?['status'] == 'completed';
     final gameWinner = _gameState?['gameWinner'] as String?;
     final round = _gameState?['round'] as int? ?? 0;
-    final p1Cards = (_gameState?['p1Deck'] as List?)?.length ?? 0;
-    final p2Cards = (_gameState?['p2Deck'] as List?)?.length ?? 0;
+    final p1Cards = ((_gameState?['p1Deck'] as List?)?.length ?? 0) +
+        ((_gameState?['p1Discard'] as List?)?.length ?? 0);
+    final p2Cards = ((_gameState?['p2Deck'] as List?)?.length ?? 0) +
+        ((_gameState?['p2Discard'] as List?)?.length ?? 0);
     final p1Name = _match?['p1_name'] as String? ?? 'Player 1';
     final p2Name = _match?['p2_name'] as String? ?? 'Player 2';
     final userId = ref.read(authProvider).user?.id;
@@ -209,8 +211,8 @@ class _MatchStatsScreenState extends ConsumerState<MatchStatsScreen>
     int myPlayerNum,
     Color primary,
   ) {
-    final p1Wins = _gameState?['p1Wins'] as int? ?? 0;
-    final p2Wins = _gameState?['p2Wins'] as int? ?? 0;
+    final p1Wins = _gameState?['p1RoundsWon'] as int? ?? 0;
+    final p2Wins = _gameState?['p2RoundsWon'] as int? ?? 0;
     final burnedCount = (_gameState?['removedCardIds'] as List?)?.length ?? 0;
     final potCount = (_gameState?['pot'] as List?)?.length ?? 0;
 

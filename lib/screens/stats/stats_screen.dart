@@ -26,7 +26,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     final userId = ref.read(authProvider).user?.id;
     if (userId == null) return;
 
-    final data = await SupabaseService.getUser(userId);
+    final data = await SupabaseService.getUserStats(userId);
     if (mounted) {
       setState(() {
         _userData = data;
