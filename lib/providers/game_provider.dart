@@ -7,6 +7,7 @@ import '../models/game_state.dart';
 import '../engine/game_engine.dart';
 import '../services/supabase_service.dart';
 import '../services/hub_api_service.dart';
+import '../services/achievement_service.dart';
 import 'settings_provider.dart';
 
 class GameNotifierState {
@@ -20,6 +21,8 @@ class GameNotifierState {
   final bool isBotMatch;
   final String? botName;
   final bool resultSubmitted;
+  final String? player1Id;
+  final String? player2Id;
 
   const GameNotifierState({
     this.gameState,
@@ -32,6 +35,8 @@ class GameNotifierState {
     this.isBotMatch = false,
     this.botName,
     this.resultSubmitted = false,
+    this.player1Id,
+    this.player2Id,
   });
 
   GameNotifierState copyWith({
@@ -45,6 +50,8 @@ class GameNotifierState {
     bool? isBotMatch,
     String? botName,
     bool? resultSubmitted,
+    String? player1Id,
+    String? player2Id,
   }) {
     return GameNotifierState(
       gameState: gameState ?? this.gameState,
@@ -57,6 +64,8 @@ class GameNotifierState {
       isBotMatch: isBotMatch ?? this.isBotMatch,
       botName: botName ?? this.botName,
       resultSubmitted: resultSubmitted ?? this.resultSubmitted,
+      player1Id: player1Id ?? this.player1Id,
+      player2Id: player2Id ?? this.player2Id,
     );
   }
 }
@@ -76,7 +85,11 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
       final match = await SupabaseService.getMatch(matchId);
       if (match != null) {
         final pNum = match['player1_id'] == userId ? 1 : 2;
-        state = state.copyWith(playerNum: pNum);
+        state = state.copyWith(
+          playerNum: pNum,
+          player1Id: match['player1_id'] as String?,
+          player2Id: match['player2_id'] as String?,
+        );
       }
 
       final gs = await SupabaseService.getGameState(matchId);
@@ -116,14 +129,33 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
     _gameChannel = SupabaseService.subscribeToGameState(matchId, (payload) {
       final newState =
           GameState.fromJson(payload['state'] as Map<String, dynamic>);
-      if (state.gameState != null) {
-        _handleHaptics(state.gameState!, newState);
+      final oldState = state.gameState;
+      if (oldState != null) {
+        _handleHaptics(oldState, newState);
+        _checkAchievements(oldState, newState);
       }
       state = state.copyWith(
         gameState: newState,
         version: payload['version'] as int,
       );
+      // The passive client never calls advance()/collectAndPlay(), so game-
+      // over detection (and the stats/achievement recording that depends on
+      // it) must also happen here when the state syncs in via realtime.
+      if (oldState != null &&
+          oldState.phase != GamePhase.gameOver &&
+          newState.phase == GamePhase.gameOver) {
+        unawaited(_maybeReportMatchResult(newState));
+      }
     });
+  }
+
+  void _checkAchievements(GameState before, GameState after) {
+    AchievementService.checkMatchAchievements(
+      before,
+      after,
+      p1UserId: state.player1Id,
+      p2UserId: state.isBotMatch ? null : state.player2Id,
+    );
   }
 
   Future<void> advance(String userId) async {
@@ -136,6 +168,7 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
     final currentVersion = state.version;
 
     _handleHaptics(gs, nextState);
+    _checkAchievements(gs, nextState);
 
     state = state.copyWith(
       gameState: nextState,
@@ -158,7 +191,7 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
     }
 
     if (nextState.phase == GamePhase.gameOver) {
-      _maybeReportMatchResult(nextState);
+      await _maybeReportMatchResult(nextState);
     } else {
       _checkBotTurn();
     }
@@ -175,6 +208,7 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
     final collected = advanceGame(gs, playerLabel);
 
     _handleHaptics(gs, collected);
+    _checkAchievements(gs, collected);
 
     if (collected.phase == GamePhase.gameOver) {
       state = state.copyWith(
@@ -186,7 +220,7 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
         state = state.copyWith(gameState: gs, version: currentVersion);
         return;
       }
-      _maybeReportMatchResult(collected);
+      await _maybeReportMatchResult(collected);
       return;
     }
 
@@ -206,6 +240,7 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
     final nextRound = advanceGame(collected, playerLabel);
 
     _handleHaptics(collected, nextRound);
+    _checkAchievements(collected, nextRound);
 
     state = state.copyWith(
       gameState: nextRound,
@@ -218,7 +253,7 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
     }
 
     if (nextRound.phase == GamePhase.gameOver) {
-      _maybeReportMatchResult(nextRound);
+      await _maybeReportMatchResult(nextRound);
     } else {
       _checkBotTurn();
     }
@@ -292,6 +327,7 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
     final nextState = advanceGame(gs, botPlayerLabel);
 
     _handleHaptics(gs, nextState);
+    _checkAchievements(gs, nextState);
 
     state = state.copyWith(
       gameState: nextState,
@@ -302,11 +338,11 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
       state.gameStateId!,
       nextState,
       currentVersion,
-    ).then((success) {
+    ).then((success) async {
       if (!success) {
         state = state.copyWith(gameState: gs, version: currentVersion);
       } else if (nextState.phase == GamePhase.gameOver) {
-        _maybeReportMatchResult(nextState);
+        await _maybeReportMatchResult(nextState);
       } else {
         _checkBotTurn();
       }
@@ -315,7 +351,7 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
 
   /// Reports the completed match to the SunShade Hub exactly once per match.
   /// Never throws — HubApiService already swallows and logs its own errors.
-  void _maybeReportMatchResult(GameState gs) {
+  Future<void> _maybeReportMatchResult(GameState gs) async {
     if (state.resultSubmitted) return;
     state = state.copyWith(resultSubmitted: true);
 
@@ -331,22 +367,32 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
       moves: gs.round,
     );
 
-    // Update local stats so strategy screen updates immediately
+    // Resolve the actual winner by user id so the match row and stats are
+    // accurate even when the local player is not the one who ended the game.
     final userId = SupabaseService.userId;
-    if (userId != null) {
-      if (didWin) {
-        SupabaseService.recordWin(userId);
-      } else {
-        SupabaseService.recordLoss(userId);
-      }
+    final matchId = state.matchId;
+    final winnerId = gs.gameWinner == 'Player 1'
+        ? state.player1Id
+        : state.player2Id;
+
+    if (matchId != null) {
+      await SupabaseService.completeMatch(matchId, winnerId);
     }
 
-    // Mark the match as completed in the DB with winner_id.
-    // Achievements should already be recorded before this point.
-    if (state.matchId != null && userId != null) {
-      // winnerId: if we won, it's our userId; otherwise query is best-effort
-      final winnerId = didWin ? userId : userId; // server resolves actual winner via gs.gameWinner
-      SupabaseService.finishMatch(state.matchId!, winnerId);
+    if (userId != null) {
+      final summaries = await SupabaseService.getUserMatchSummaries(userId);
+      await SupabaseService.refreshUserStats(userId, summaries: summaries);
+      // Game-scope (cumulative wins) and player-scope (bounty) achievements
+      // depend on the refreshed stats, so run this last.
+      await AchievementService.checkGameAndPlayerAchievements(
+        userId,
+        summaries: summaries,
+      );
+    }
+
+    // Close the match time window after achievements are stamped.
+    if (matchId != null) {
+      await SupabaseService.finalizeMatch(matchId);
     }
   }
 
