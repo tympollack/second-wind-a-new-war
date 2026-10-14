@@ -3,6 +3,9 @@ import '../models/playing_card.dart';
 import '../models/game_state.dart';
 import '../engine/game_engine.dart';
 import '../theme/app_theme.dart';
+import 'card_widget.dart';
+
+export 'card_widget.dart';
 
 class PlayingCardWidget extends StatelessWidget {
   final PlayingCard card;
@@ -219,6 +222,7 @@ class FaceDownCardWidget extends StatelessWidget {
   final double width;
   final double height;
   final double spread;
+  final CardBackTheme? cardBackTheme;
 
   const FaceDownCardWidget({
     super.key,
@@ -226,6 +230,7 @@ class FaceDownCardWidget extends StatelessWidget {
     this.width = 60,
     this.height = 90,
     this.spread = 8.0,
+    this.cardBackTheme,
   });
 
   @override
@@ -239,42 +244,48 @@ class FaceDownCardWidget extends StatelessWidget {
         children: List.generate(displayCount, (i) {
           return Positioned(
             left: i * spread,
-            child: Container(
-              width: width,
-              height: height,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF312E81), // indigo-900 equivalent
-                    Color(0xFF111827), // gray-900 equivalent
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: AppTheme.metalGray.withValues(alpha: 0.6),
-                  width: 2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.3),
-                    blurRadius: 4,
-                    offset: const Offset(2, 2),
+            child: cardBackTheme != null
+                ? CardBackWidget(
+                    theme: cardBackTheme!,
+                    width: width,
+                    height: height,
+                  )
+                : Container(
+                    width: width,
+                    height: height,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFF312E81), // indigo-900 equivalent
+                          Color(0xFF111827), // gray-900 equivalent
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppTheme.metalGray.withValues(alpha: 0.6),
+                        width: 2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.3),
+                          blurRadius: 4,
+                          offset: const Offset(2, 2),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Text(
+                        '?',
+                        style: TextStyle(
+                          fontSize: width * 0.4,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.indigo.shade300,
+                        ),
+                      ),
+                    ),
                   ),
-                ],
-              ),
-              child: Center(
-                child: Text(
-                  '?',
-                  style: TextStyle(
-                    fontSize: width * 0.4,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.indigo.shade300,
-                  ),
-                ),
-              ),
-            ),
           );
         }),
       ),
