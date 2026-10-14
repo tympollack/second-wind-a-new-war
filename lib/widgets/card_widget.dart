@@ -428,13 +428,90 @@ class CardFaceWidget extends StatelessWidget {
     }
 
     // Pip cards 2 through 10
-    return SizedBox(
-      width: w * 0.35,
-      height: w * 0.35,
-      child: CustomPaint(
-        painter: SuitVectorPainter(suit: card.suit!, color: color),
-      ),
-    );
+    final pipSize = (w * 0.16).clamp(10.0, 20.0);
+    Widget suitPip() => SizedBox(
+          width: pipSize,
+          height: pipSize,
+          child: CustomPaint(
+            painter: SuitVectorPainter(suit: card.suit!, color: color),
+          ),
+        );
+
+    switch (card.rank) {
+      case 2:
+        return SizedBox(
+          height: h * 0.5,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [suitPip(), suitPip()],
+          ),
+        );
+      case 3:
+        return SizedBox(
+          height: h * 0.55,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [suitPip(), suitPip(), suitPip()],
+          ),
+        );
+      case 4:
+        return SizedBox(
+          width: w * 0.44,
+          height: h * 0.5,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [suitPip(), suitPip()]),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [suitPip(), suitPip()]),
+            ],
+          ),
+        );
+      case 5:
+        return SizedBox(
+          width: w * 0.44,
+          height: h * 0.52,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [suitPip(), suitPip()]),
+              suitPip(),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [suitPip(), suitPip()]),
+            ],
+          ),
+        );
+      case 6:
+      case 7:
+      case 8:
+        return SizedBox(
+          width: w * 0.44,
+          height: h * 0.55,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [suitPip(), suitPip()]),
+              if (card.rank >= 7) suitPip(),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [suitPip(), suitPip()]),
+              if (card.rank == 8) suitPip(),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [suitPip(), suitPip()]),
+            ],
+          ),
+        );
+      case 9:
+      case 10:
+      default:
+        return SizedBox(
+          width: w * 0.48,
+          height: h * 0.58,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [suitPip(), suitPip()]),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [suitPip(), if (card.rank == 10) suitPip()]),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [suitPip(), suitPip()]),
+            ],
+          ),
+        );
+    }
   }
 }
 
@@ -512,6 +589,96 @@ class StatusBadgeWidget extends StatelessWidget {
   }
 }
 
+/// Cartoon Hand Grip Painter (gripping the card edge from the front)
+class HandGripPainter extends CustomPainter {
+  final bool isOpponent;
+  final Color skinColor;
+
+  const HandGripPainter({
+    this.isOpponent = false,
+    this.skinColor = const Color(0xFFFFDBAC),
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    final skinPaint = Paint()
+      ..color = skinColor
+      ..style = PaintingStyle.fill;
+
+    final outlinePaint = Paint()
+      ..color = const Color(0xFF0F172A)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+
+    // 4 Cartoon rounded fingers grasping the edge
+    final fingerWidth = w / 4.8;
+    final fingerHeight = h * 0.75;
+
+    for (int i = 0; i < 4; i++) {
+      final x = i * (fingerWidth * 1.1) + fingerWidth * 0.2;
+      final y = isOpponent ? 0.0 : h - fingerHeight;
+      final fingerRect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(x, y, fingerWidth, fingerHeight),
+        Radius.circular(fingerWidth * 0.45),
+      );
+      canvas.drawRRect(fingerRect, skinPaint);
+      canvas.drawRRect(fingerRect, outlinePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant HandGripPainter oldDelegate) =>
+      oldDelegate.isOpponent != isOpponent || oldDelegate.skinColor != skinColor;
+}
+
+/// Cartoon Arm Sleeve Painter (reaching behind card towards screen edge)
+class ArmSleevePainter extends CustomPainter {
+  final bool isOpponent;
+  final Color sleeveColor;
+
+  const ArmSleevePainter({
+    this.isOpponent = false,
+    this.sleeveColor = const Color(0xFF2563EB),
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    final sleevePaint = Paint()
+      ..color = sleeveColor
+      ..style = PaintingStyle.fill;
+
+    final outlinePaint = Paint()
+      ..color = const Color(0xFF0F172A)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+
+    // Sleeve Arm
+    final sleeveRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * 0.2, 0, w * 0.6, h),
+      const Radius.circular(8),
+    );
+    canvas.drawRRect(sleeveRect, sleevePaint);
+    canvas.drawRRect(sleeveRect, outlinePaint);
+
+    // Cuff highlight band
+    final cuffPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.3)
+      ..style = PaintingStyle.fill;
+    final cuffRect = Rect.fromLTWH(w * 0.2, isOpponent ? h - 10 : 0, w * 0.6, 10);
+    canvas.drawRect(cuffRect, cuffPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant ArmSleevePainter oldDelegate) =>
+      oldDelegate.isOpponent != isOpponent || oldDelegate.sleeveColor != sleeveColor;
+}
+
 /// Kenney Modular Character Dealing Hand Rig
 class DealingHandPainter extends CustomPainter {
   final bool isOpponent;
@@ -544,21 +711,21 @@ class DealingHandPainter extends CustomPainter {
 
     // Sleeve Arm
     final sleeveRect = isOpponent
-        ? RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.25, 0, w * 0.5, h * 0.45), const Radius.circular(8))
-        : RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.25, h * 0.55, w * 0.5, h * 0.45), const Radius.circular(8));
+        ? RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.25, 0, w * 0.5, h * 0.5), const Radius.circular(8))
+        : RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.25, h * 0.5, w * 0.5, h * 0.5), const Radius.circular(8));
 
     canvas.drawRRect(sleeveRect, sleevePaint);
     canvas.drawRRect(sleeveRect, outlinePaint);
 
     // Rounded cartoon hand / glove (Kenney style)
-    final handCenter = isOpponent ? Offset(w * 0.5, h * 0.6) : Offset(w * 0.5, h * 0.4);
-    canvas.drawCircle(handCenter, w * 0.26, skinPaint);
-    canvas.drawCircle(handCenter, w * 0.26, outlinePaint);
+    final handCenter = isOpponent ? Offset(w * 0.5, h * 0.65) : Offset(w * 0.5, h * 0.35);
+    canvas.drawCircle(handCenter, w * 0.28, skinPaint);
+    canvas.drawCircle(handCenter, w * 0.28, outlinePaint);
 
     // Thumb / grip detail
-    final thumbOffset = isOpponent ? Offset(w * 0.32, h * 0.72) : Offset(w * 0.32, h * 0.28);
-    canvas.drawCircle(thumbOffset, w * 0.12, skinPaint);
-    canvas.drawCircle(thumbOffset, w * 0.12, outlinePaint);
+    final thumbOffset = isOpponent ? Offset(w * 0.32, h * 0.78) : Offset(w * 0.32, h * 0.22);
+    canvas.drawCircle(thumbOffset, w * 0.13, skinPaint);
+    canvas.drawCircle(thumbOffset, w * 0.13, outlinePaint);
   }
 
   @override
@@ -572,44 +739,75 @@ class DealingHandPainter extends CustomPainter {
 class DealingHandWidget extends StatelessWidget {
   final Animation<double> slideAnimation;
   final bool isOpponent;
+  final double cardWidth;
+  final double cardHeight;
   final Widget? child;
 
   const DealingHandWidget({
     super.key,
     required this.slideAnimation,
     this.isOpponent = false,
+    this.cardWidth = 80,
+    this.cardHeight = 120,
     this.child,
   });
 
   @override
   Widget build(BuildContext context) {
     final offsetTween = isOpponent
-        ? Tween<Offset>(begin: const Offset(0, -1.2), end: const Offset(0, 0.05))
-        : Tween<Offset>(begin: const Offset(0, 1.2), end: const Offset(0, -0.05));
+        ? Tween<Offset>(begin: const Offset(0, -1.3), end: const Offset(0, 0.0))
+        : Tween<Offset>(begin: const Offset(0, 1.3), end: const Offset(0, 0.0));
+
+    final sleeveColor = isOpponent ? const Color(0xFFEF4444) : const Color(0xFF3B82F6);
 
     return SlideTransition(
       position: offsetTween.animate(
         CurvedAnimation(parent: slideAnimation, curve: Curves.easeOutCubic),
       ),
-      child: Stack(
-        alignment: Alignment.center,
-        clipBehavior: Clip.none,
-        children: [
-          CustomPaint(
-            size: const Size(90, 120),
-            painter: DealingHandPainter(
-              isOpponent: isOpponent,
-              sleeveColor: isOpponent ? const Color(0xFFEF4444) : const Color(0xFF3B82F6),
+      child: child != null
+          ? Stack(
+              alignment: Alignment.center,
+              clipBehavior: Clip.none,
+              children: [
+                // 1. Arm sleeve extending outward toward screen edge
+                Positioned(
+                  top: isOpponent ? -cardHeight * 0.45 : null,
+                  bottom: !isOpponent ? -cardHeight * 0.45 : null,
+                  child: CustomPaint(
+                    size: Size(cardWidth * 0.65, cardHeight * 0.5),
+                    painter: ArmSleevePainter(
+                      isOpponent: isOpponent,
+                      sleeveColor: sleeveColor,
+                    ),
+                  ),
+                ),
+                // 2. The Card being dealt
+                child!,
+                // 3. Gripping Cartoon Hand Fingers on TOP of the card edge
+                Positioned(
+                  top: isOpponent ? -8 : null,
+                  bottom: !isOpponent ? -8 : null,
+                  child: CustomPaint(
+                    size: Size(cardWidth * 0.7, 28),
+                    painter: HandGripPainter(
+                      isOpponent: isOpponent,
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : CustomPaint(
+              size: Size(cardWidth * 1.1, cardHeight),
+              painter: DealingHandPainter(
+                isOpponent: isOpponent,
+                sleeveColor: sleeveColor,
+              ),
             ),
-          ),
-          ?child,
-        ],
-      ),
     );
   }
 }
 
-/// 3D Flippable Card with 60 FPS Smooth Rotation
+/// 3D Flippable Card with 60 FPS Smooth Rotation (never mirrored)
 class FlippableCardWidget extends StatelessWidget {
   final bool isFaceUp;
   final PlayingCard card;
@@ -632,41 +830,34 @@ class FlippableCardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 300),
-      transitionBuilder: (child, animation) {
-        final rotate = Tween<double>(begin: math.pi, end: 0.0).animate(animation);
-        return AnimatedBuilder(
-          animation: rotate,
-          child: child,
-          builder: (context, widget) {
-            final isUnder = (ValueKey(isFaceUp) != widget?.key);
-            var tilt = ((animation.value - 0.5).abs() - 0.5) * 0.003;
-            tilt *= isUnder ? -1.0 : 1.0;
-            final value = isUnder ? math.min(rotate.value, math.pi / 2) : rotate.value;
-            return Transform(
-              transform: Matrix4.rotationY(value)..setEntry(3, 0, tilt),
-              alignment: Alignment.center,
-              child: widget,
-            );
-          },
+    return TweenAnimationBuilder<double>(
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeInOut,
+      tween: Tween<double>(begin: isFaceUp ? 1.0 : 0.0, end: isFaceUp ? 1.0 : 0.0),
+      builder: (context, value, _) {
+        final isFront = value >= 0.5;
+        final rotationY = value * math.pi;
+
+        return Transform(
+          transform: Matrix4.identity()
+            ..setEntry(3, 2, 0.001) // 3D Perspective
+            ..rotateY(isFront ? rotationY - math.pi : rotationY),
+          alignment: Alignment.center,
+          child: isFront
+              ? CardFaceWidget(
+                  card: card,
+                  status: status,
+                  isWinner: isWinner,
+                  width: width,
+                  height: height,
+                )
+              : CardBackWidget(
+                  theme: cardBackTheme,
+                  width: width,
+                  height: height,
+                ),
         );
       },
-      child: isFaceUp
-          ? CardFaceWidget(
-              key: const ValueKey(true),
-              card: card,
-              status: status,
-              isWinner: isWinner,
-              width: width,
-              height: height,
-            )
-          : CardBackWidget(
-              key: const ValueKey(false),
-              theme: cardBackTheme,
-              width: width,
-              height: height,
-            ),
     );
   }
 }

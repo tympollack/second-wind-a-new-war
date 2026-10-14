@@ -116,7 +116,9 @@ class _TabletopPlayfieldViewState extends State<TabletopPlayfieldView>
   @override
   void didUpdateWidget(covariant TabletopPlayfieldView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.playerCard != oldWidget.playerCard || widget.isWar != oldWidget.isWar) {
+    if (widget.playerCard != oldWidget.playerCard ||
+        widget.opponentCard != oldWidget.opponentCard ||
+        widget.isWar != oldWidget.isWar) {
       _handAnimController.forward(from: 0.0);
     }
   }
@@ -143,30 +145,25 @@ class _TabletopPlayfieldViewState extends State<TabletopPlayfieldView>
               // Opponent Area & Dealing Hand
               SizedBox(
                 height: cardH + 20,
-                child: Stack(
-                  alignment: Alignment.center,
-                  clipBehavior: Clip.none,
-                  children: [
-                    DealingHandWidget(
-                      slideAnimation: _handAnimController,
-                      isOpponent: true,
-                    ),
-                    if (widget.opponentCard != null)
-                      FlippableCardWidget(
-                        isFaceUp: widget.isOpponentCardFaceUp,
-                        card: widget.opponentCard!,
-                        status: widget.opponentCardStatus,
-                        cardBackTheme: widget.cardBackTheme,
-                        width: cardW,
-                        height: cardH,
-                      )
-                    else
-                      CardBackWidget(
-                        theme: widget.cardBackTheme,
-                        width: cardW,
-                        height: cardH,
-                      ),
-                  ],
+                child: DealingHandWidget(
+                  slideAnimation: _handAnimController,
+                  isOpponent: true,
+                  cardWidth: cardW,
+                  cardHeight: cardH,
+                  child: widget.opponentCard != null
+                      ? FlippableCardWidget(
+                          isFaceUp: widget.isOpponentCardFaceUp,
+                          card: widget.opponentCard!,
+                          status: widget.opponentCardStatus,
+                          cardBackTheme: widget.cardBackTheme,
+                          width: cardW,
+                          height: cardH,
+                        )
+                      : CardBackWidget(
+                          theme: widget.cardBackTheme,
+                          width: cardW,
+                          height: cardH,
+                        ),
                 ),
               ),
 
@@ -186,13 +183,13 @@ class _TabletopPlayfieldViewState extends State<TabletopPlayfieldView>
                               widget.opponentCardStatus == CardStatus.trump)
                             const StatusBadgeWidget(
                               type: StatusBadgeType.trump,
-                              customLabel: 'TRUMP 2X',
+                              customLabel: 'TRUMP CARD',
                             ),
                           if (widget.playerCardStatus == CardStatus.musketeer ||
                               widget.opponentCardStatus == CardStatus.musketeer)
                             const StatusBadgeWidget(
                               type: StatusBadgeType.musketeer,
-                              customLabel: 'MUSKETEER 3X',
+                              customLabel: 'MUSKETEER DOMINATES',
                             ),
                           if (widget.isSecondWindActive)
                             const StatusBadgeWidget(
@@ -245,30 +242,25 @@ class _TabletopPlayfieldViewState extends State<TabletopPlayfieldView>
               // Player Area & Dealing Hand
               SizedBox(
                 height: cardH + 20,
-                child: Stack(
-                  alignment: Alignment.center,
-                  clipBehavior: Clip.none,
-                  children: [
-                    DealingHandWidget(
-                      slideAnimation: _handAnimController,
-                      isOpponent: false,
-                    ),
-                    if (widget.playerCard != null)
-                      FlippableCardWidget(
-                        isFaceUp: widget.isPlayerCardFaceUp,
-                        card: widget.playerCard!,
-                        status: widget.playerCardStatus,
-                        cardBackTheme: widget.cardBackTheme,
-                        width: cardW,
-                        height: cardH,
-                      )
-                    else
-                      CardBackWidget(
-                        theme: widget.cardBackTheme,
-                        width: cardW,
-                        height: cardH,
-                      ),
-                  ],
+                child: DealingHandWidget(
+                  slideAnimation: _handAnimController,
+                  isOpponent: false,
+                  cardWidth: cardW,
+                  cardHeight: cardH,
+                  child: widget.playerCard != null
+                      ? FlippableCardWidget(
+                          isFaceUp: widget.isPlayerCardFaceUp,
+                          card: widget.playerCard!,
+                          status: widget.playerCardStatus,
+                          cardBackTheme: widget.cardBackTheme,
+                          width: cardW,
+                          height: cardH,
+                        )
+                      : CardBackWidget(
+                          theme: widget.cardBackTheme,
+                          width: cardW,
+                          height: cardH,
+                        ),
                 ),
               ),
             ],

@@ -177,7 +177,7 @@ void main() {
 
       expect(find.byType(TabletopPlayfieldView), findsOneWidget);
       expect(find.text('⚔ WAR SEQUENCE ⚔'), findsOneWidget);
-      expect(find.text('TRUMP 2X'), findsOneWidget);
+      expect(find.text('TRUMP CARD'), findsOneWidget);
       expect(find.text('SECOND WIND ACTIVE'), findsOneWidget);
 
       await tester.tap(find.text('DRAW / FLIP'));
