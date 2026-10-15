@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/playing_card.dart';
 import '../theme/app_theme.dart';
 import '../widgets/card_widget.dart';
+import '../widgets/card_clash_particle_emitter.dart';
 
 /// Custom Painter for Tabletop Green/Navy Felt Surface with Wood Beveled Border
 class TabletopFeltPainter extends CustomPainter {
@@ -137,135 +138,145 @@ class _TabletopPlayfieldViewState extends State<TabletopPlayfieldView>
 
     return CustomPaint(
       painter: const TabletopFeltPainter(),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              // Opponent Area & Dealing Hand
-              SizedBox(
-                height: cardH + 20,
-                child: DealingHandWidget(
-                  slideAnimation: _handAnimController,
-                  isOpponent: true,
-                  cardWidth: cardW,
-                  cardHeight: cardH,
-                  child: widget.opponentCard != null
-                      ? FlippableCardWidget(
-                          isFaceUp: widget.isOpponentCardFaceUp,
-                          card: widget.opponentCard!,
-                          status: widget.opponentCardStatus,
-                          cardBackTheme: widget.cardBackTheme,
-                          width: cardW,
-                          height: cardH,
-                        )
-                      : CardBackWidget(
-                          theme: widget.cardBackTheme,
-                          width: cardW,
-                          height: cardH,
-                        ),
-                ),
-              ),
+      child: Stack(
+        children: [
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  // Opponent Area & Dealing Hand
+                  SizedBox(
+                    height: cardH + 20,
+                    child: DealingHandWidget(
+                      slideAnimation: _handAnimController,
+                      isOpponent: true,
+                      cardWidth: cardW,
+                      cardHeight: cardH,
+                      child: widget.opponentCard != null
+                          ? FlippableCardWidget(
+                              isFaceUp: widget.isOpponentCardFaceUp,
+                              card: widget.opponentCard!,
+                              status: widget.opponentCardStatus,
+                              cardBackTheme: widget.cardBackTheme,
+                              width: cardW,
+                              height: cardH,
+                            )
+                          : CardBackWidget(
+                              theme: widget.cardBackTheme,
+                              width: cardW,
+                              height: cardH,
+                            ),
+                    ),
+                  ),
 
-              // Center Battle Arena & Status Badges
-              Expanded(
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Active Badges Row
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        alignment: WrapAlignment.center,
+                  // Center Battle Arena & Status Badges
+                  Expanded(
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (widget.playerCardStatus == CardStatus.trump ||
-                              widget.opponentCardStatus == CardStatus.trump)
-                            const StatusBadgeWidget(
-                              type: StatusBadgeType.trump,
-                              customLabel: 'TRUMP CARD',
-                            ),
-                          if (widget.playerCardStatus == CardStatus.musketeer ||
-                              widget.opponentCardStatus == CardStatus.musketeer)
-                            const StatusBadgeWidget(
-                              type: StatusBadgeType.musketeer,
-                              customLabel: 'MUSKETEER DOMINATES',
-                            ),
-                          if (widget.isSecondWindActive)
-                            const StatusBadgeWidget(
-                              type: StatusBadgeType.secondWind,
-                              customLabel: 'SECOND WIND ACTIVE',
-                            ),
-                          if (widget.isWar)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.red.shade900,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.amberAccent, width: 2),
-                              ),
-                              child: const Text(
-                                '⚔ WAR SEQUENCE ⚔',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 12,
-                                  letterSpacing: 1.0,
+                          // Active Badges Row
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            alignment: WrapAlignment.center,
+                            children: [
+                              if (widget.playerCardStatus == CardStatus.trump ||
+                                  widget.opponentCardStatus == CardStatus.trump)
+                                const StatusBadgeWidget(
+                                  type: StatusBadgeType.trump,
+                                  customLabel: 'TRUMP CARD',
                                 ),
+                              if (widget.playerCardStatus == CardStatus.musketeer ||
+                                  widget.opponentCardStatus == CardStatus.musketeer)
+                                const StatusBadgeWidget(
+                                  type: StatusBadgeType.musketeer,
+                                  customLabel: 'MUSKETEER DOMINATES',
+                                ),
+                              if (widget.isSecondWindActive)
+                                const StatusBadgeWidget(
+                                  type: StatusBadgeType.secondWind,
+                                  customLabel: 'SECOND WIND ACTIVE',
+                                ),
+                              if (widget.isWar)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade900,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.amberAccent, width: 2),
+                                  ),
+                                  child: const Text(
+                                    '⚔ WAR SEQUENCE ⚔',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 12,
+                                      letterSpacing: 1.0,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          if (widget.onDealTap != null)
+                            ElevatedButton.icon(
+                              onPressed: widget.onDealTap,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.winGreen,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              icon: const Icon(Icons.touch_app),
+                              label: const Text(
+                                'DRAW / FLIP',
+                                style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.8),
                               ),
                             ),
                         ],
                       ),
-                      const SizedBox(height: 12),
-                      if (widget.onDealTap != null)
-                        ElevatedButton.icon(
-                          onPressed: widget.onDealTap,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.winGreen,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          icon: const Icon(Icons.touch_app),
-                          label: const Text(
-                            'DRAW / FLIP',
-                            style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.8),
-                          ),
-                        ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
 
-              // Player Area & Dealing Hand
-              SizedBox(
-                height: cardH + 20,
-                child: DealingHandWidget(
-                  slideAnimation: _handAnimController,
-                  isOpponent: false,
-                  cardWidth: cardW,
-                  cardHeight: cardH,
-                  child: widget.playerCard != null
-                      ? FlippableCardWidget(
-                          isFaceUp: widget.isPlayerCardFaceUp,
-                          card: widget.playerCard!,
-                          status: widget.playerCardStatus,
-                          cardBackTheme: widget.cardBackTheme,
-                          width: cardW,
-                          height: cardH,
-                        )
-                      : CardBackWidget(
-                          theme: widget.cardBackTheme,
-                          width: cardW,
-                          height: cardH,
-                        ),
-                ),
+                  // Player Area & Dealing Hand
+                  SizedBox(
+                    height: cardH + 20,
+                    child: DealingHandWidget(
+                      slideAnimation: _handAnimController,
+                      isOpponent: false,
+                      cardWidth: cardW,
+                      cardHeight: cardH,
+                      child: widget.playerCard != null
+                          ? FlippableCardWidget(
+                              isFaceUp: widget.isPlayerCardFaceUp,
+                              card: widget.playerCard!,
+                              status: widget.playerCardStatus,
+                              cardBackTheme: widget.cardBackTheme,
+                              width: cardW,
+                              height: cardH,
+                            )
+                          : CardBackWidget(
+                              theme: widget.cardBackTheme,
+                              width: cardW,
+                              height: cardH,
+                            ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
+          // Kenney card clash spark emitter active on War event
+          Positioned.fill(
+            child: CardClashParticleEmitter(
+              isWar: widget.isWar,
+            ),
+          ),
+        ],
       ),
     );
   }
