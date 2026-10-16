@@ -16,8 +16,37 @@ interface WebhookPayload {
   old_record: any;
 }
 
+function getWaitingPlayer(state: any): "Player 1" | "Player 2" | null {
+  if (!state || state.phase === "gameOver") return null;
+
+  if (state.phase === "idle" || state.phase === "warPending") {
+    if (state.p1Ready && !state.p2Ready) return "Player 2";
+    if (state.p2Ready && !state.p1Ready) return "Player 1";
+    return null;
+  }
+
+  if (state.phase === "result" || state.phase === "warResult") {
+    if (state.lastResult && state.lastResult !== "tie") {
+      return state.lastResult === "p1Wins" ? "Player 1" : "Player 2";
+    }
+    // tie: both need to ready up
+    if (state.p1Ready && !state.p2Ready) return "Player 2";
+    if (state.p2Ready && !state.p1Ready) return "Player 1";
+    return null;
+  }
+
+  return null;
+}
+
 serve(async (req) => {
   try {
+    // 0. Verify webhook authentication
+    const webhookSecret = Deno.env.get("WEBHOOK_SECRET") || Deno.env.get("SERVICE_ROLE_KEY");
+    const authHeader = req.headers.get("x-webhook-secret") || req.headers.get("authorization");
+    if (webhookSecret && authHeader !== webhookSecret && authHeader !== `Bearer ${webhookSecret}`) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
     const payload: WebhookPayload = await req.json();
 
     // 1. Validate payload
@@ -28,12 +57,12 @@ serve(async (req) => {
     const oldState = payload.old_record?.state || {};
     const newState = payload.record?.state || {};
 
-    // 2. Check if turn actually changed
-    const oldTurn = oldState.turn;
-    const newTurn = newState.turn;
+    // 2. Check if waiting player / turn actually changed
+    const oldWaiting = getWaitingPlayer(oldState);
+    const newWaiting = getWaitingPlayer(newState);
 
-    if (oldTurn === newTurn) {
-      return new Response("Turn did not change", { status: 200 });
+    if (!newWaiting || oldWaiting === newWaiting) {
+      return new Response("Turn did not change or no player waiting", { status: 200 });
     }
 
     // 3. Initialize Supabase Admin Client
@@ -61,9 +90,9 @@ serve(async (req) => {
 
     // 5. Determine whose turn it is now
     let nextPlayerId: string | null = null;
-    if (newTurn === "Player 1") {
+    if (newWaiting === "Player 1") {
       nextPlayerId = match.player1_id;
-    } else if (newTurn === "Player 2") {
+    } else if (newWaiting === "Player 2") {
       nextPlayerId = match.player2_id;
     }
 

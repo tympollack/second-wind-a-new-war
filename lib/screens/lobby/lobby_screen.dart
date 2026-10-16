@@ -891,7 +891,15 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                 if (!isFinished) ...[
                   const SizedBox(width: 8),
                   GestureDetector(
-                    onTap: () => _navigateToGame(matchId),
+                    onTap: () {
+                      final isBot = match['player2_id'] == null;
+                      if (isBot) {
+                        final botName = match['p2_name'] as String? ?? 'General Bot';
+                        _navigateToBotGame(matchId, botName);
+                      } else {
+                        _navigateToGame(matchId);
+                      }
+                    },
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(

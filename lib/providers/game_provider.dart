@@ -85,10 +85,13 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
       final match = await SupabaseService.getMatch(matchId);
       if (match != null) {
         final pNum = match['player1_id'] == userId ? 1 : 2;
+        final isBot = match['player2_id'] == null;
         state = state.copyWith(
           playerNum: pNum,
           player1Id: match['player1_id'] as String?,
           player2Id: match['player2_id'] as String?,
+          isBotMatch: state.isBotMatch || isBot,
+          botName: state.botName ?? (isBot ? (match['p2_name'] as String? ?? 'General Bot') : null),
         );
       }
 
@@ -109,6 +112,8 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
 
       if (!state.isBotMatch) {
         _subscribeToGameState(matchId);
+      } else {
+        _checkBotTurn();
       }
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -182,10 +187,23 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
     );
 
     if (!success) {
+      // Version conflict: fetch current game state from Supabase to recover
+      try {
+        final latest = await SupabaseService.getGameState(state.matchId ?? '');
+        if (latest != null) {
+          final latestState =
+              GameState.fromJson(latest['state'] as Map<String, dynamic>);
+          state = state.copyWith(
+            gameState: latestState,
+            version: latest['version'] as int,
+          );
+          _checkBotTurn();
+          return;
+        }
+      } catch (_) {}
       state = state.copyWith(
         gameState: gs,
         version: currentVersion,
-        error: 'Conflict: move rejected by server',
       );
       return;
     }
