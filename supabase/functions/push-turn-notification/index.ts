@@ -16,8 +16,40 @@ interface WebhookPayload {
   old_record: any;
 }
 
+function getWaitingPlayer(state: any): "Player 1" | "Player 2" | null {
+  if (!state || state.phase === "gameOver") return null;
+
+  if (state.phase === "idle" || state.phase === "warPending") {
+    if (state.p1Ready && !state.p2Ready) return "Player 2";
+    if (state.p2Ready && !state.p1Ready) return "Player 1";
+    return null;
+  }
+
+  if (state.phase === "result" || state.phase === "warResult") {
+    if (state.lastResult && state.lastResult !== "tie") {
+      return state.lastResult === "p1Wins" ? "Player 1" : "Player 2";
+    }
+    // tie: both need to ready up
+    if (state.p1Ready && !state.p2Ready) return "Player 2";
+    if (state.p2Ready && !state.p1Ready) return "Player 1";
+    return null;
+  }
+
+  return null;
+}
+
 serve(async (req) => {
   try {
+    // 0. Verify webhook authentication
+    const webhookSecret = Deno.env.get("WEBHOOK_SECRET") || Deno.env.get("SERVICE_ROLE_KEY");
+    if (!webhookSecret) {
+      return new Response("Server configuration error: missing webhook secret", { status: 500 });
+    }
+    const authHeader = req.headers.get("x-webhook-secret") || req.headers.get("authorization");
+    if (!authHeader || (authHeader !== webhookSecret && authHeader !== `Bearer ${webhookSecret}`)) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
     const payload: WebhookPayload = await req.json();
 
     // 1. Validate payload
@@ -25,15 +57,19 @@ serve(async (req) => {
       return new Response("Not a game state update", { status: 400 });
     }
 
-    const oldState = payload.old_record?.state || {};
-    const newState = payload.record?.state || {};
+    if (!payload.old_record?.state || !payload.record?.state) {
+      return new Response("Missing game state in webhook payload", { status: 400 });
+    }
 
-    // 2. Check if turn actually changed
-    const oldTurn = oldState.turn;
-    const newTurn = newState.turn;
+    const oldState = payload.old_record.state;
+    const newState = payload.record.state;
 
-    if (oldTurn === newTurn) {
-      return new Response("Turn did not change", { status: 200 });
+    // 2. Check if waiting player / turn actually changed
+    const oldWaiting = getWaitingPlayer(oldState);
+    const newWaiting = getWaitingPlayer(newState);
+
+    if (!newWaiting || oldWaiting === newWaiting) {
+      return new Response("Turn did not change or no player waiting", { status: 200 });
     }
 
     // 3. Initialize Supabase Admin Client
@@ -46,12 +82,33 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 4. Get the Match to find player IDs
+    // 4. Verify game state record in database
     const matchId = payload.record.match_id;
+    if (!matchId) {
+      return new Response("Missing match_id in record", { status: 400 });
+    }
+
+    const { data: dbGameState, error: stateError } = await supabase
+      .schema("wsw")
+      .from("game_states")
+      .select("id, match_id, state")
+      .eq("id", payload.record.id)
+      .eq("match_id", matchId)
+      .single();
+
+    if (stateError || !dbGameState) {
+      return new Response("Game state record not found in database", { status: 404 });
+    }
+
+    if (JSON.stringify(dbGameState.state) !== JSON.stringify(newState)) {
+      return new Response("Payload state does not match database state", { status: 400 });
+    }
+
+    // 5. Get the Match to find player IDs
     const { data: match, error: matchError } = await supabase
       .schema("wsw")
       .from("matches")
-      .select("player1_id, player2_id")
+      .select("player1_id, player2_id, status")
       .eq("id", matchId)
       .single();
 
@@ -59,11 +116,15 @@ serve(async (req) => {
       throw new Error("Match not found");
     }
 
+    if (match.status === "completed") {
+      return new Response("Match is already completed", { status: 200 });
+    }
+
     // 5. Determine whose turn it is now
     let nextPlayerId: string | null = null;
-    if (newTurn === "Player 1") {
+    if (newWaiting === "Player 1") {
       nextPlayerId = match.player1_id;
-    } else if (newTurn === "Player 2") {
+    } else if (newWaiting === "Player 2") {
       nextPlayerId = match.player2_id;
     }
 

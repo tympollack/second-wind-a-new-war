@@ -214,10 +214,10 @@ class AchievementService {
     final gamesPlayed =
         matchSummaries.where((s) => s['status'] == 'completed').length;
 
-    if (wins >= 10) SupabaseService.unlockAchievement(userId, 'war_veteran');
-    if (wins >= 50) SupabaseService.unlockAchievement(userId, 'war_hero');
+    if (wins >= 10) await SupabaseService.unlockAchievement(userId, 'war_veteran');
+    if (wins >= 50) await SupabaseService.unlockAchievement(userId, 'war_hero');
     if (gamesPlayed >= 250) {
-      SupabaseService.unlockAchievement(userId, 'veteran_player');
+      await SupabaseService.unlockAchievement(userId, 'veteran_player');
     }
 
     // Daily Orders: played at least one game today.
@@ -229,7 +229,7 @@ class AchievementService {
       return d.year == now.year && d.month == now.month && d.day == now.day;
     });
     if (playedToday) {
-      SupabaseService.unlockAchievement(userId, 'daily_mission');
+      await SupabaseService.unlockAchievement(userId, 'daily_mission');
     }
 
     // Social Butterfly: 5+ distinct opponents (bots/null excluded).
@@ -238,7 +238,7 @@ class AchievementService {
         .where((id) => id != null)
         .toSet();
     if (distinctOpponents.length >= 5) {
-      SupabaseService.unlockAchievement(userId, 'social_butterfly');
+      await SupabaseService.unlockAchievement(userId, 'social_butterfly');
     }
 
     // Card Collector: held 40+ cards at once in 5+ different games.
@@ -246,7 +246,7 @@ class AchievementService {
         .where((m) => (m['max_cards_held'] as int? ?? 0) >= 40)
         .length;
     if (gamesWith40Plus >= 5) {
-      SupabaseService.unlockAchievement(userId, 'card_collector');
+      await SupabaseService.unlockAchievement(userId, 'card_collector');
     }
 
     // Dedicated Soldier: played on 7 consecutive calendar days (incl. today).
@@ -266,7 +266,7 @@ class AchievementService {
       cursor = cursor.subtract(const Duration(days: 1));
     }
     if (streak >= 7) {
-      SupabaseService.unlockAchievement(userId, 'dedicated_player');
+      await SupabaseService.unlockAchievement(userId, 'dedicated_player');
     }
   }
 }
