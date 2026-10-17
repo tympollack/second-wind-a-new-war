@@ -62,9 +62,10 @@ cp .env.example .env
 ### Supabase Setup
 
 1. Create a Supabase project at [supabase.com](https://supabase.com)
-2. Run the SQL migration in `supabase/migrations/00001_initial_schema.sql`
-3. Enable Anonymous Sign-in in Authentication > Providers
-4. Set your project URL and anon key via environment variables
+2. Run the SQL migration in `supabase/migrations/00001_war_second_wind_schema.sql`. It creates a dedicated `war_second_wind` schema (isolated from `public`, since this project may share a Supabase instance with other apps) that the app queries via `client.schema('war_second_wind')`.
+3. In the Supabase dashboard, go to **Settings > API > Exposed schemas** and add `war_second_wind` so PostgREST allows the client to query it.
+4. Enable Anonymous Sign-in in Authentication > Providers
+5. Set your project URL and anon key via environment variables
 
 ### Running
 

@@ -39,10 +39,10 @@ class _AccountPromptDialogState extends ConsumerState<AccountPromptDialog> {
         decoration: BoxDecoration(
           color: const Color(0xFF1A1A2E),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.primaryCyan.withAlpha(128)),
+          border: Border.all(color: Theme.of(context).colorScheme.primary.withAlpha(128)),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.primaryCyan.withAlpha(51),
+              color: Theme.of(context).colorScheme.primary.withAlpha(51),
               blurRadius: 20,
               spreadRadius: 2,
             ),
@@ -51,12 +51,12 @@ class _AccountPromptDialogState extends ConsumerState<AccountPromptDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
+            Text(
               'SECURE YOUR COMMAND',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: AppTheme.primaryCyan,
+                color: Theme.of(context).colorScheme.primary,
                 letterSpacing: 2,
               ),
             ),
@@ -71,7 +71,7 @@ class _AccountPromptDialogState extends ConsumerState<AccountPromptDialog> {
             if (!_showForm) ...[
               MilitaryButton(
                 label: 'CREATE ACCOUNT',
-                color: AppTheme.primaryCyan,
+                color: Theme.of(context).colorScheme.primary,
                 onPressed: () => setState(() => _showForm = true),
               ),
               const SizedBox(height: 12),
@@ -90,33 +90,33 @@ class _AccountPromptDialogState extends ConsumerState<AccountPromptDialog> {
               TextField(
                 controller: _nameController,
                 style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'DISPLAY NAME',
-                  labelStyle: TextStyle(color: Colors.white54),
-                  enabledBorder: OutlineInputBorder(
+                  labelStyle: const TextStyle(color: Colors.white54),
+                  enabledBorder: const OutlineInputBorder(
                     borderSide: BorderSide(color: Colors.white24),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: AppTheme.primaryCyan),
+                    borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
                   ),
                   prefixIcon:
-                      Icon(Icons.military_tech, color: AppTheme.primaryCyan),
+                      Icon(Icons.military_tech, color: Theme.of(context).colorScheme.primary),
                 ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: _emailController,
                 style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'EMAIL',
-                  labelStyle: TextStyle(color: Colors.white54),
-                  enabledBorder: OutlineInputBorder(
+                  labelStyle: const TextStyle(color: Colors.white54),
+                  enabledBorder: const OutlineInputBorder(
                     borderSide: BorderSide(color: Colors.white24),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: AppTheme.primaryCyan),
+                    borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
                   ),
-                  prefixIcon: Icon(Icons.email, color: AppTheme.primaryCyan),
+                  prefixIcon: Icon(Icons.email, color: Theme.of(context).colorScheme.primary),
                 ),
               ),
               const SizedBox(height: 12),
@@ -124,16 +124,16 @@ class _AccountPromptDialogState extends ConsumerState<AccountPromptDialog> {
                 controller: _passwordController,
                 obscureText: true,
                 style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'PASSWORD',
-                  labelStyle: TextStyle(color: Colors.white54),
-                  enabledBorder: OutlineInputBorder(
+                  labelStyle: const TextStyle(color: Colors.white54),
+                  enabledBorder: const OutlineInputBorder(
                     borderSide: BorderSide(color: Colors.white24),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: AppTheme.primaryCyan),
+                    borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
                   ),
-                  prefixIcon: Icon(Icons.lock, color: AppTheme.primaryCyan),
+                  prefixIcon: Icon(Icons.lock, color: Theme.of(context).colorScheme.primary),
                 ),
               ),
               const SizedBox(height: 16),
@@ -148,7 +148,7 @@ class _AccountPromptDialogState extends ConsumerState<AccountPromptDialog> {
                 ),
               MilitaryButton(
                 label: authState.isLoading ? 'DEPLOYING...' : 'DEPLOY ACCOUNT',
-                color: AppTheme.primaryCyan,
+                color: Theme.of(context).colorScheme.primary,
                 onPressed: authState.isLoading
                     ? null
                     : () async {

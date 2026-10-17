@@ -1,7 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
 import '../services/device_service.dart';
+
+import '../utils/url_handler.dart';
 
 class AuthState {
   final User? user;
@@ -49,6 +52,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(deviceId: deviceId);
 
     try {
+      final uri = Uri.base;
+      if (uri.queryParameters.containsKey('access_token') && uri.queryParameters.containsKey('refresh_token')) {
+        final accessToken = uri.queryParameters['access_token']!;
+        final refreshToken = uri.queryParameters['refresh_token']!;
+        
+        await SupabaseService.client.auth.setSession(
+          refreshToken,
+          accessToken: accessToken,
+        );
+        clearUrlParameters();
+      }
+      
       final user = SupabaseService.currentUser;
       if (user != null) {
         final isAnon = user.isAnonymous;
@@ -78,11 +93,22 @@ class AuthNotifier extends StateNotifier<AuthState> {
         state = state.copyWith(
           displayName: profile['display_name'] as String?,
         );
+      } else {
+        // User profile doesn't exist (e.g. authenticated via deep link from another app).
+        // Upsert a default profile to satisfy foreign key constraints.
+        final user = SupabaseService.currentUser;
+        if (user != null) {
+          final email = user.email ?? 'Unknown';
+          final name = email.contains('@') ? email.split('@')[0] : 'Commander';
+          await SupabaseService.upsertUser(userId, name);
+          state = state.copyWith(displayName: name);
+        }
       }
     } catch (e) {
       // Profile load failed
     }
   }
+
 
   Future<void> signInAnonymously() async {
     state = state.copyWith(isLoading: true, error: null);
@@ -94,7 +120,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
         await SupabaseService.upsertUser(
           response.user!.id,
           name,
-          deviceId: deviceId,
         );
         state = state.copyWith(
           user: response.user,
@@ -105,51 +130,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
         );
       }
     } catch (e) {
+      debugPrint('WSW signInAnonymously error: $e');
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 
-  Future<void> signInWithEmail(String email, String password) async {
-    state = state.copyWith(isLoading: true, error: null);
-    try {
-      final response =
-          await SupabaseService.signInWithEmail(email, password);
-      if (response.user != null) {
-        await _loadProfile(response.user!.id);
-        state = state.copyWith(
-          user: response.user,
-          isLoading: false,
-          isAnonymous: false,
-        );
-        await DeviceService.markAccountCreated();
-      }
-    } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
-    }
-  }
 
-  Future<void> signUpWithEmail(
-      String email, String password, String displayName) async {
-    state = state.copyWith(isLoading: true, error: null);
-    try {
-      final response =
-          await SupabaseService.signUpWithEmail(email, password);
-      if (response.user != null) {
-        final name =
-            displayName.isNotEmpty ? displayName : email.split('@')[0];
-        await SupabaseService.upsertUser(response.user!.id, name);
-        state = state.copyWith(
-          user: response.user,
-          displayName: name,
-          isLoading: false,
-          isAnonymous: false,
-        );
-        await DeviceService.markAccountCreated();
-      }
-    } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
-    }
-  }
 
   Future<void> upgradeAnonymousAccount(
       String email, String password, String displayName) async {

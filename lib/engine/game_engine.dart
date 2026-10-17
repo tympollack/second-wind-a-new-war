@@ -8,6 +8,8 @@ GameState createInitialGameState() {
     p1Deck: allCards.sublist(0, 18),
     p2Deck: allCards.sublist(18, 36),
     secondWindDeck: allCards.sublist(36, 54),
+    p1MaxCardsHeld: 18,
+    p2MaxCardsHeld: 18,
   );
 }
 
@@ -57,6 +59,11 @@ RoundResult _compareCards(PlayingCard a, PlayingCard b, Suit? trumpSuit,
   return a.rank > b.rank ? RoundResult.p1Wins : RoundResult.p2Wins;
 }
 
+// Returns a neutral reason string with no player/perspective framing.
+// For a tie this is the full display text (symmetric for both players).
+// Otherwise this is just an optional special-condition suffix (e.g. "Joker
+// beats all!"); the perspective-based sentence ("K beats 3" / "3 loses to K")
+// is built client-side per viewer in the UI.
 String _buildReason(PlayingCard p1, PlayingCard p2, RoundResult result,
     Suit? trumpSuit, int? muskRank, Map<int, int> removedByRank) {
   if (result == RoundResult.tie) return 'Equal rank \u2014 WAR!';
@@ -71,7 +78,7 @@ String _buildReason(PlayingCard p1, PlayingCard p2, RoundResult result,
       !winner.isJoker) {
     return 'Trump suit wins!';
   }
-  return '${winner.rankName} beats ${loser.rankName}';
+  return '';
 }
 
 void _maybeSetTrump(GameState state) {
@@ -109,12 +116,28 @@ void _endGame(GameState state, String winner) {
   state.phase = GamePhase.gameOver;
 }
 
+void _refillIfEmpty(GameState state, int playerNum) {
+  final deck = playerNum == 1 ? state.p1Deck : state.p2Deck;
+  final discard = playerNum == 1 ? state.p1Discard : state.p2Discard;
+  if (deck.isEmpty && discard.isNotEmpty) {
+    deck.addAll(shuffleList(discard));
+    discard.clear();
+    state.statusBanner = 'Player $playerNum shuffled their discard pile into their deck!';
+  }
+}
+
 GameState _playRound(GameState state) {
+  _refillIfEmpty(state, 1);
+  _refillIfEmpty(state, 2);
+
   if (state.p1Deck.isEmpty || state.p2Deck.isEmpty) {
     final winner = state.p2Deck.isEmpty ? 'Player 1' : 'Player 2';
     _endGame(state, winner);
     return state;
   }
+
+  state.p1Ready = false;
+  state.p2Ready = false;
 
   state.p1BattleCard = state.p1Deck.removeAt(0);
   state.p2BattleCard = state.p2Deck.removeAt(0);
@@ -138,6 +161,10 @@ GameState _playRound(GameState state) {
 
 GameState _startWar(GameState state) {
   state.warDepth++;
+  state.warsTriggered++;
+  if (state.warDepth > state.maxWarChainDepth) {
+    state.maxWarChainDepth = state.warDepth;
+  }
 
   if (state.p1BattleCard != null) {
     _removeCardFromGame(state, state.p1BattleCard!);
@@ -154,25 +181,34 @@ GameState _startWar(GameState state) {
         '${state.p1BattleCard!.rankName}s are now Musketeers!';
   }
 
-  final p1Take =
-      (state.p1Deck.length - 1).clamp(0, 3);
-  final p2Take =
-      (state.p2Deck.length - 1).clamp(0, 3);
+  final p1Total = state.p1Deck.length + state.p1Discard.length;
+  final p2Total = state.p2Deck.length + state.p2Discard.length;
+  final p1Take = (p1Total - 1).clamp(0, 3);
+  final p2Take = (p2Total - 1).clamp(0, 3);
   state.p1FaceDownCount = p1Take;
   state.p2FaceDownCount = p2Take;
 
   for (var i = 0; i < p1Take; i++) {
-    state.pot.add(state.p1Deck.removeAt(0));
+    _refillIfEmpty(state, 1);
+    if (state.p1Deck.isNotEmpty) state.pot.add(state.p1Deck.removeAt(0));
   }
   for (var i = 0; i < p2Take; i++) {
-    state.pot.add(state.p2Deck.removeAt(0));
+    _refillIfEmpty(state, 2);
+    if (state.p2Deck.isNotEmpty) state.pot.add(state.p2Deck.removeAt(0));
   }
+
+  // The tied cards that triggered the war have been burned; clear them so
+  // the UI shows a fresh face-down placeholder instead of the old cards
+  // while players wait to flip their war cards.
+  state.p1BattleCard = null;
+  state.p2BattleCard = null;
 
   state.phase = GamePhase.warPending;
   return state;
 }
 
 GameState _flipWarCard(GameState state) {
+  _refillIfEmpty(state, 1);
   if (state.p1Deck.isEmpty) {
     if (!state.secondWindUsed) {
       _giveSecondWind(state, 1);
@@ -185,6 +221,8 @@ GameState _flipWarCard(GameState state) {
       return state;
     }
   }
+
+  _refillIfEmpty(state, 2);
   if (state.p2Deck.isEmpty) {
     if (!state.secondWindUsed) {
       _giveSecondWind(state, 2);
@@ -197,6 +235,9 @@ GameState _flipWarCard(GameState state) {
       return state;
     }
   }
+
+  state.p1Ready = false;
+  state.p2Ready = false;
 
   state.p1BattleCard = state.p1Deck.removeAt(0);
   state.p2BattleCard = state.p2Deck.removeAt(0);
@@ -218,13 +259,67 @@ GameState _flipWarCard(GameState state) {
 
 GameState _awardPot(GameState state) {
   final isP1Win = state.lastResult == RoundResult.p1Wins;
-  final winnerDeck = isP1Win ? state.p1Deck : state.p2Deck;
-  final loserDeck = isP1Win ? state.p2Deck : state.p1Deck;
+  final winnerDiscard = isP1Win ? state.p1Discard : state.p2Discard;
   final loserNum = isP1Win ? 2 : 1;
+  final wasWar = state.warDepth > 0;
 
-  final shuffled = shuffleList(state.pot);
-  winnerDeck.addAll(shuffled);
+  // Track win streaks and round wins
+  if (isP1Win) {
+    state.p1WinStreak++;
+    state.p2WinStreak = 0;
+    state.p1RoundsWon++;
+  } else {
+    state.p2WinStreak++;
+    state.p1WinStreak = 0;
+    state.p2RoundsWon++;
+  }
+
+  // Track wars won
+  if (wasWar) {
+    if (isP1Win) {
+      state.p1WarsWon++;
+    } else {
+      state.p2WarsWon++;
+    }
+  }
+
+  // Track trump-win streaks (consecutive round wins by trump-card advantage)
+  final winnerCard = isP1Win ? state.p1BattleCard : state.p2BattleCard;
+  final wonByTrump =
+      winnerCard != null && getCardStatus(winnerCard, state) == CardStatus.trump;
+  if (isP1Win) {
+    state.p1TrumpStreak = wonByTrump ? state.p1TrumpStreak + 1 : 0;
+    state.p2TrumpStreak = 0;
+    if (state.p1TrumpStreak > state.p1MaxTrumpStreak) {
+      state.p1MaxTrumpStreak = state.p1TrumpStreak;
+    }
+  } else {
+    state.p2TrumpStreak = wonByTrump ? state.p2TrumpStreak + 1 : 0;
+    state.p1TrumpStreak = 0;
+    if (state.p2TrumpStreak > state.p2MaxTrumpStreak) {
+      state.p2MaxTrumpStreak = state.p2TrumpStreak;
+    }
+  }
+
+  // Ensure the won card (loser's card) is on top of the discard pile
+  if (state.p1BattleCard != null && state.p2BattleCard != null) {
+    final loserCard = isP1Win ? state.p2BattleCard! : state.p1BattleCard!;
+    if (state.pot.contains(loserCard)) {
+      state.pot.remove(loserCard);
+      state.pot.add(loserCard);
+    }
+  }
+
+  if (isP1Win) {
+    state.p1LastTrick = List.from(state.pot);
+  } else {
+    state.p2LastTrick = List.from(state.pot);
+  }
+  winnerDiscard.addAll(state.pot);
   state.pot = [];
+
+  // Clear round description when cards are collected
+  state.roundReason = null;
 
   state.warDepth = 0;
   state.p1BattleCard = null;
@@ -233,7 +328,20 @@ GameState _awardPot(GameState state) {
   state.p1FaceDownCount = 0;
   state.p2FaceDownCount = 0;
 
-  if (loserDeck.isEmpty) {
+  // Track peak card counts and low-card thresholds for both players
+  final p1Total = state.p1Deck.length + state.p1Discard.length;
+  final p2Total = state.p2Deck.length + state.p2Discard.length;
+  if (p1Total > state.p1MaxCardsHeld) state.p1MaxCardsHeld = p1Total;
+  if (p2Total > state.p2MaxCardsHeld) state.p2MaxCardsHeld = p2Total;
+  if (p1Total <= 5) state.p1WasLowCards = true;
+  if (p2Total <= 5) state.p2WasLowCards = true;
+  if (p1Total <= 1) state.p1WasOneCard = true;
+  if (p2Total <= 1) state.p2WasOneCard = true;
+
+  final loserDeck = isP1Win ? state.p2Deck : state.p1Deck;
+  final loserDiscard = isP1Win ? state.p2Discard : state.p1Discard;
+
+  if (loserDeck.isEmpty && loserDiscard.isEmpty) {
     if (!state.secondWindUsed) {
       _giveSecondWind(state, loserNum);
       state.phase = GamePhase.idle;
@@ -256,19 +364,65 @@ GameState advanceGame(GameState currentState, String actionBy) {
 
   switch (state.phase) {
     case GamePhase.idle:
-      return _playRound(state);
+      if (actionBy == 'Player 1') {
+        state.p1Ready = true;
+      } else if (actionBy == 'Player 2') {
+        state.p2Ready = true;
+      }
+      if (state.p1Ready && state.p2Ready) {
+        return _playRound(state);
+      }
+      return state;
     case GamePhase.result:
-      if (state.lastResult == RoundResult.tie) {
-        return _startWar(state);
+      if (state.lastResult != RoundResult.tie) {
+        final winnerLabel = state.lastResult == RoundResult.p1Wins ? 'Player 1' : 'Player 2';
+        if (actionBy == winnerLabel) {
+          return _awardPot(state);
+        }
+        return state;
+      } else {
+        if (actionBy == 'Player 1') {
+          state.p1Ready = true;
+        } else if (actionBy == 'Player 2') {
+          state.p2Ready = true;
+        }
+        if (state.p1Ready && state.p2Ready) {
+          state.p1Ready = false;
+          state.p2Ready = false;
+          return _startWar(state);
+        }
+        return state;
       }
-      return _awardPot(state);
     case GamePhase.warPending:
-      return _flipWarCard(state);
-    case GamePhase.warResult:
-      if (state.lastResult == RoundResult.tie) {
-        return _startWar(state);
+      if (actionBy == 'Player 1') {
+        state.p1Ready = true;
+      } else if (actionBy == 'Player 2') {
+        state.p2Ready = true;
       }
-      return _awardPot(state);
+      if (state.p1Ready && state.p2Ready) {
+        return _flipWarCard(state);
+      }
+      return state;
+    case GamePhase.warResult:
+      if (state.lastResult != RoundResult.tie) {
+        final winnerLabel = state.lastResult == RoundResult.p1Wins ? 'Player 1' : 'Player 2';
+        if (actionBy == winnerLabel) {
+          return _awardPot(state);
+        }
+        return state;
+      } else {
+        if (actionBy == 'Player 1') {
+          state.p1Ready = true;
+        } else if (actionBy == 'Player 2') {
+          state.p2Ready = true;
+        }
+        if (state.p1Ready && state.p2Ready) {
+          state.p1Ready = false;
+          state.p2Ready = false;
+          return _startWar(state);
+        }
+        return state;
+      }
     default:
       return state;
   }

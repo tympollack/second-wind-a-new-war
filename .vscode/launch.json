@@ -1,0 +1,37 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "second_wind_a_new_war",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "toolArgs": [
+        "--dart-define=SUPABASE_URL=https://tpbpmhscsxchnezukpev.supabase.co",
+        "--dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwYnBtaHNjc3hjaG5lenVrcGV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMDY0NTEsImV4cCI6MjA5ODU4MjQ1MX0.jLv8YHa_kc7zj6nJS_qQSCX2C_kZlPDy6akYOtu0MJk"
+      ]
+    },
+    {
+      "name": "second_wind_a_new_war (profile mode)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "profile",
+      "program": "lib/main.dart",
+      "toolArgs": [
+        "--dart-define=SUPABASE_URL=https://tpbpmhscsxchnezukpev.supabase.co",
+        "--dart-define=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwYnBtaHNjc3hjaG5lenVrcGV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMDY0NTEsImV4cCI6MjA5ODU4MjQ1MX0.jLv8YHa_kc7zj6nJS_qQSCX2C_kZlPDy6akYOtu0MJk"
+      ]
+    },
+    {
+      "name": "second_wind_a_new_war (release mode)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "release",
+      "program": "lib/main.dart",
+      "toolArgs": [
+        "--dart-define=SUPABASE_URL=https://tpbpmhscsxchnezukpev.supabase.co",
+        "--dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwYnBtaHNjc3hjaG5lenVrcGV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMDY0NTEsImV4cCI6MjA5ODU4MjQ1MX0.jLv8YHa_kc7zj6nJS_qQSCX2C_kZlPDy6akYOtu0MJk"
+      ]
+    }
+  ]
+}

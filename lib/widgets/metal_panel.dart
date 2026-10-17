@@ -80,9 +80,11 @@ class MetalPanel extends StatelessWidget {
                 ),
               ),
             ),
-          Padding(
-            padding: padding ?? const EdgeInsets.all(16),
-            child: child,
+          Flexible(
+            child: SingleChildScrollView(
+              padding: padding ?? const EdgeInsets.all(16),
+              child: child,
+            ),
           ),
         ],
       ),

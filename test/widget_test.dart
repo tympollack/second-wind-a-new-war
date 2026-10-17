@@ -14,7 +14,8 @@ void main() {
 
   test('advanceGame plays a round', () {
     final state = createInitialGameState();
-    final next = advanceGame(state, 'Player 1');
+    final afterP1 = advanceGame(state, 'Player 1');
+    final next = advanceGame(afterP1, 'Player 2');
     expect(next.round, 1);
     expect(next.p1BattleCard, isNotNull);
     expect(next.p2BattleCard, isNotNull);
@@ -23,7 +24,8 @@ void main() {
 
   test('same rank triggers war (tie)', () {
     final state = createInitialGameState();
-    final next = advanceGame(state, 'Player 1');
+    final afterP1 = advanceGame(state, 'Player 1');
+    final next = advanceGame(afterP1, 'Player 2');
     if (next.lastResult == RoundResult.tie) {
       expect(next.roundReason, contains('WAR'));
     }
