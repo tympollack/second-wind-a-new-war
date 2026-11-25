@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/asset_registry_service.dart';
 import '../theme/app_theme.dart';
 
 class MetalPanel extends StatelessWidget {
@@ -19,7 +20,9 @@ class MetalPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final panelUrl = AssetRegistryService.instance.resolveUiSpriteUrl('panel-metal');
     return Container(
+      key: ValueKey('metal-panel-$panelUrl'),
       width: width,
       height: height,
       decoration: BoxDecoration(

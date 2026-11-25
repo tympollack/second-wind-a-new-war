@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../models/playing_card.dart';
+import '../services/asset_registry_service.dart';
 import '../theme/app_theme.dart';
 
 enum CardBackTheme {
@@ -206,7 +207,9 @@ class CardBackWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cdnUrl = AssetRegistryService.instance.resolveCardBackUrl(theme);
     return Container(
+      key: ValueKey('cardback-$cdnUrl'),
       width: width,
       height: height,
       decoration: BoxDecoration(
@@ -274,7 +277,9 @@ class CardFaceWidget extends StatelessWidget {
         break;
     }
 
+    final cardCdnUrl = AssetRegistryService.instance.resolveCardUrl(card);
     return Container(
+      key: ValueKey('cardface-$cardCdnUrl'),
       width: width,
       height: height,
       decoration: BoxDecoration(
@@ -759,8 +764,10 @@ class DealingHandWidget extends StatelessWidget {
         : Tween<Offset>(begin: const Offset(0, 1.3), end: const Offset(0, 0.0));
 
     final sleeveColor = isOpponent ? const Color(0xFFEF4444) : const Color(0xFF3B82F6);
+    final handRigUrl = AssetRegistryService.instance.resolveHandRigUrl(isOpponent: isOpponent);
 
     return SlideTransition(
+      key: ValueKey('handrig-$handRigUrl'),
       position: offsetTween.animate(
         CurvedAnimation(parent: slideAnimation, curve: Curves.easeOutCubic),
       ),
