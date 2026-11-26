@@ -209,16 +209,22 @@ class AssetRegistryService {
   ];
 
   final Map<String, WswAssetOverride> _overrides = {};
+  final Map<String, WswAssetOverride> _catalogEntries = {};
   final Map<String, String> _packOverrides = {};
   final ValueNotifier<int> swapRevision = ValueNotifier<int>(0);
   bool _hydrated = false;
+  bool _hydratedFromRemote = false;
+  List<WswCatalogAsset> _cachedCatalog = seedCatalog;
 
   bool get isHydrated => _hydrated;
 
   void reset() {
     _overrides.clear();
+    _catalogEntries.clear();
     _packOverrides.clear();
     _hydrated = false;
+    _hydratedFromRemote = false;
+    _cachedCatalog = seedCatalog;
     swapRevision.value++;
   }
 
@@ -233,20 +239,26 @@ class AssetRegistryService {
     swapRevision.value++;
   }
 
-  bool hasOverride(String key) => _overrides.containsKey(key.trim());
+  bool hasOverride(String key) {
+    final cleanKey = key.trim();
+    return _overrides.containsKey(cleanKey) || _catalogEntries.containsKey(cleanKey);
+  }
 
   void loadCatalog(List<WswCatalogAsset> assets, {String? scope}) {
-    final filtered = scope == null
-        ? assets
-        : assets.where((a) => a.appScope == scope || a.appScope == 'all');
+    final filtered = (scope == null
+            ? assets
+            : assets.where((a) => a.appScope == scope || a.appScope == 'all'))
+        .toList();
+    _catalogEntries.clear();
     for (final asset in filtered) {
       final cleanKey = asset.assetKey.trim();
       if (cleanKey.isEmpty) continue;
-      _overrides[cleanKey] = WswAssetOverride(
+      _catalogEntries[cleanKey] = WswAssetOverride(
         url: asset.cdnUrl,
         metadata: asset.metadata,
       );
     }
+    _cachedCatalog = filtered;
     _hydrated = true;
     swapRevision.value++;
   }
@@ -255,8 +267,8 @@ class AssetRegistryService {
     SupabaseClient? supabaseClient,
     bool force = false,
   }) async {
-    if (_hydrated && !force) {
-      return seedCatalog;
+    if (_hydrated && !force && (supabaseClient == null || _hydratedFromRemote)) {
+      return _cachedCatalog;
     }
 
     if (supabaseClient != null) {
@@ -273,6 +285,7 @@ class AssetRegistryService {
               .where((a) => a.assetKey.isNotEmpty && a.cdnUrl.isNotEmpty)
               .toList();
           if (parsed.isNotEmpty) {
+            _hydratedFromRemote = true;
             loadCatalog(parsed, scope: appScope);
             return parsed;
           }
@@ -282,6 +295,7 @@ class AssetRegistryService {
       }
     }
 
+    _hydratedFromRemote = false;
     loadCatalog(seedCatalog, scope: appScope);
     return seedCatalog;
   }
@@ -331,11 +345,39 @@ class AssetRegistryService {
     if (packBase != null) {
       return '$packBase/$finalPath';
     }
+    if (_catalogEntries.containsKey(bareKey)) {
+      return _catalogEntries[bareKey]!.url;
+    }
+    if (_catalogEntries.containsKey(cleanPath)) {
+      return _catalogEntries[cleanPath]!.url;
+    }
     return '$cdnBaseUrl/$cleanPack/$finalPath';
+  }
+
+  static String? _seedAliasForCardKey(String key) {
+    if (key == 'card-spades-a') return 'card-face-spades-ace';
+    if (key == 'card-hearts-k') return 'card-face-hearts-king';
+    return null;
   }
 
   String resolveCardUrl(PlayingCard card) {
     final key = cardKeyFor(card);
+    if (_overrides.containsKey(key)) {
+      return _overrides[key]!.url;
+    }
+    final aliasKey = _seedAliasForCardKey(key);
+    if (aliasKey != null && _overrides.containsKey(aliasKey)) {
+      return _overrides[aliasKey]!.url;
+    }
+    if (_packOverrides.containsKey('cards')) {
+      return resolveAssetUrl('cards', key);
+    }
+    if (_catalogEntries.containsKey(key)) {
+      return _catalogEntries[key]!.url;
+    }
+    if (aliasKey != null && _hydratedFromRemote && _catalogEntries.containsKey(aliasKey)) {
+      return _catalogEntries[aliasKey]!.url;
+    }
     return resolveAssetUrl('cards', key);
   }
 
@@ -346,15 +388,31 @@ class AssetRegistryService {
     if (_overrides.containsKey(catalogKey)) {
       return _overrides[catalogKey]!.url;
     }
-    return resolveAssetUrl('cards', cardBackKeyFor(theme));
+    final backKey = cardBackKeyFor(theme);
+    if (_overrides.containsKey(backKey)) {
+      return _overrides[backKey]!.url;
+    }
+    if (_packOverrides.containsKey('cards')) {
+      return resolveAssetUrl('cards', backKey);
+    }
+    if (_catalogEntries.containsKey(catalogKey)) {
+      return _catalogEntries[catalogKey]!.url;
+    }
+    return resolveAssetUrl('cards', backKey);
   }
 
   String resolveHandRigUrl({required bool isOpponent}) {
     final charKey = isOpponent ? 'char-shirts-shirt-red-0' : 'char-shirts-shirt-blue-0';
-    final category = 'shirts';
+    const category = 'shirts';
     final itemKey = isOpponent ? 'shirt-red-0' : 'shirt-blue-0';
     if (_overrides.containsKey(charKey)) {
       return _overrides[charKey]!.url;
+    }
+    if (_packOverrides.containsKey('modular-characters')) {
+      return resolveAssetUrl('modular-characters', '$category/$itemKey');
+    }
+    if (_catalogEntries.containsKey(charKey)) {
+      return _catalogEntries[charKey]!.url;
     }
     return resolveAssetUrl('modular-characters', '$category/$itemKey');
   }
@@ -365,7 +423,7 @@ class AssetRegistryService {
 
   WswFlameSpriteData? resolveCardFlameSpriteData(String cardKey) {
     final cleanKey = cardKey.trim();
-    final override = _overrides[cleanKey];
+    final override = _overrides[cleanKey] ?? _catalogEntries[cleanKey];
     final frame = override?.frame ?? playingCardAtlasFrames[cleanKey];
     if (frame == null) return null;
 

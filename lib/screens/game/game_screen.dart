@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/game_provider.dart';
 import '../../models/game_state.dart';
 import '../../models/playing_card.dart';
+import '../../services/asset_registry_service.dart';
 import '../../services/device_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/playing_card_widget.dart';
@@ -85,6 +87,15 @@ class _GameScreenState extends ConsumerState<GameScreen>
         () => ref.read(gameProvider.notifier).loadGame(widget.matchId, userId),
       );
     }
+    Future.microtask(() {
+      SupabaseClient? client;
+      try {
+        client = Supabase.instance.client;
+      } catch (_) {
+        client = null;
+      }
+      return AssetRegistryService.instance.hydrateCatalog(supabaseClient: client);
+    });
   }
 
   @override

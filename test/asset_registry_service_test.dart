@@ -1,7 +1,9 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war_second_wind/engine/game_engine.dart';
 import 'package:war_second_wind/models/playing_card.dart';
 import 'package:war_second_wind/services/asset_registry_service.dart';
-import 'package:war_second_wind/widgets/card_widget.dart';
+import 'package:war_second_wind/widgets/playing_card_widget.dart';
 
 void main() {
   group('TASK-PKG-APP-WSW: @digitalcanopy/assets 52-Card Deck & Hand Rig Adapter', () {
@@ -71,6 +73,57 @@ void main() {
         registry.resolveCardBackUrl(CardBackTheme.subterraneanCrimson),
         'https://custom-ip.sunshade.icu/crimson-holo.png',
       );
+    });
+
+    test('evicts removed catalog entries on forced refresh and respects pack swaps for backs', () async {
+      final registry = AssetRegistryService.create();
+      registry.loadCatalog([
+        const WswCatalogAsset(
+          appScope: 'wsw',
+          category: 'card_face',
+          assetKey: 'card-hearts-07',
+          cdnUrl: 'https://custom.sunshade.icu/removed-7h.png',
+        ),
+      ], scope: 'wsw');
+      expect(registry.hasOverride('card-hearts-07'), isTrue);
+
+      await registry.hydrateCatalog(force: true);
+      expect(registry.hasOverride('card-hearts-07'), isFalse);
+
+      registry.registerPackOverride('cards', 'https://custom.sunshade.icu/custom-cards');
+      expect(
+        registry.resolveCardBackUrl(CardBackTheme.canyonCyan),
+        'https://custom.sunshade.icu/custom-cards/cardback-cyan.png',
+      );
+    });
+
+    testWidgets('PlayingCardWidget renders Image.network bound to CDN and updates on hot-swap', (tester) async {
+      final registry = AssetRegistryService.instance;
+      registry.reset();
+      await registry.hydrateCatalog();
+
+      const aceSpades = PlayingCard(id: 1, suit: Suit.spades, rank: 14, isJoker: false);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: PlayingCardWidget(
+              card: aceSpades,
+              gameState: createInitialGameState(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final img = tester.widget<Image>(find.byType(Image).first);
+      expect((img.image as NetworkImage).url, '${AssetRegistryService.cdnBaseUrl}/cards/card-spades-a.png');
+
+      registry.registerPackOverride('cards', 'https://custom-ip.sunshade.icu/live-deck');
+      await tester.pump();
+
+      final swappedImg = tester.widget<Image>(find.byType(Image).first);
+      expect((swappedImg.image as NetworkImage).url, 'https://custom-ip.sunshade.icu/live-deck/card-spades-a.png');
+      registry.reset();
     });
   });
 }
