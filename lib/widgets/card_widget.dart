@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../models/playing_card.dart';
+import '../services/asset_registry_service.dart';
 import '../theme/app_theme.dart';
 
 enum CardBackTheme {
@@ -206,26 +207,43 @@ class CardBackWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.45),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+    return ValueListenableBuilder<int>(
+      valueListenable: AssetRegistryService.instance.swapRevision,
+      builder: (context, _, _) {
+        final cdnUrl = AssetRegistryService.instance.resolveCardBackUrl(theme);
+        return Container(
+          key: ValueKey('cardback-$cdnUrl'),
+          width: width,
+          height: height,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.45),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(10),
-        child: CustomPaint(
-          size: Size(width, height),
-          painter: CardBackPainter(theme: theme),
-        ),
-      ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                CustomPaint(
+                  size: Size(width, height),
+                  painter: CardBackPainter(theme: theme),
+                ),
+                Image.network(
+                  cdnUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -251,125 +269,144 @@ class CardFaceWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isRed = card.isRed;
-    Color primaryColor;
-    Color borderColor;
+    return ValueListenableBuilder<int>(
+      valueListenable: AssetRegistryService.instance.swapRevision,
+      builder: (context, _, _) {
+        final isRed = card.isRed;
+        Color primaryColor;
+        Color borderColor;
 
-    switch (status) {
-      case CardStatus.trump:
-        primaryColor = AppTheme.goldTrump;
-        borderColor = AppTheme.goldTrump;
-        break;
-      case CardStatus.musketeer:
-        primaryColor = AppTheme.purpleMusketeer;
-        borderColor = AppTheme.purpleMusketeer;
-        break;
-      case CardStatus.joker:
-        primaryColor = AppTheme.cyanJoker;
-        borderColor = AppTheme.cyanJoker;
-        break;
-      case CardStatus.normal:
-        primaryColor = isRed ? const Color(0xFFDC2626) : const Color(0xFF1E293B);
-        borderColor = isWinner ? AppTheme.winGreen : const Color(0xFF94A3B8);
-        break;
-    }
+        switch (status) {
+          case CardStatus.trump:
+            primaryColor = AppTheme.goldTrump;
+            borderColor = AppTheme.goldTrump;
+            break;
+          case CardStatus.musketeer:
+            primaryColor = AppTheme.purpleMusketeer;
+            borderColor = AppTheme.purpleMusketeer;
+            break;
+          case CardStatus.joker:
+            primaryColor = AppTheme.cyanJoker;
+            borderColor = AppTheme.cyanJoker;
+            break;
+          case CardStatus.normal:
+            primaryColor = isRed ? const Color(0xFFDC2626) : const Color(0xFF1E293B);
+            borderColor = isWinner ? AppTheme.winGreen : const Color(0xFF94A3B8);
+            break;
+        }
 
-    return Container(
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC), // ivory / crisp white card face
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: borderColor, width: isWinner ? 3.0 : 1.8),
-        boxShadow: [
-          if (isWinner)
-            BoxShadow(
-              color: AppTheme.winGreen.withValues(alpha: 0.6),
-              blurRadius: 16,
-              spreadRadius: 3,
-            ),
-          if (status == CardStatus.trump)
-            BoxShadow(
-              color: AppTheme.goldTrump.withValues(alpha: 0.4),
-              blurRadius: 12,
-              spreadRadius: 2,
-            ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          // Top-Left Corner Index
-          Positioned(
-            top: 4,
-            left: 5,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  card.rankLabel,
-                  style: TextStyle(
-                    fontFamily: 'RobotoCondensed',
-                    fontWeight: FontWeight.w900,
-                    fontSize: width * 0.2,
-                    color: primaryColor,
-                    height: 1.0,
-                  ),
+        final cardCdnUrl = AssetRegistryService.instance.resolveCardUrl(card);
+        return Container(
+          key: ValueKey('cardface-$cardCdnUrl'),
+          width: width,
+          height: height,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC), // ivory / crisp white card face
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: borderColor, width: isWinner ? 3.0 : 1.8),
+            boxShadow: [
+              if (isWinner)
+                BoxShadow(
+                  color: AppTheme.winGreen.withValues(alpha: 0.6),
+                  blurRadius: 16,
+                  spreadRadius: 3,
                 ),
-                if (card.suit != null)
-                  SizedBox(
-                    width: width * 0.14,
-                    height: width * 0.14,
-                    child: CustomPaint(
-                      painter: SuitVectorPainter(suit: card.suit!, color: primaryColor),
-                    ),
-                  ),
-              ],
-            ),
+              if (status == CardStatus.trump)
+                BoxShadow(
+                  color: AppTheme.goldTrump.withValues(alpha: 0.4),
+                  blurRadius: 12,
+                  spreadRadius: 2,
+                ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.35),
+                blurRadius: 6,
+                offset: const Offset(0, 3),
+              ),
+            ],
           ),
-
-          // Bottom-Right Corner Index (Inverted)
-          Positioned(
-            bottom: 4,
-            right: 5,
-            child: Transform.rotate(
-              angle: math.pi,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    card.rankLabel,
-                    style: TextStyle(
-                      fontFamily: 'RobotoCondensed',
-                      fontWeight: FontWeight.w900,
-                      fontSize: width * 0.2,
-                      color: primaryColor,
-                      height: 1.0,
-                    ),
-                  ),
-                  if (card.suit != null)
-                    SizedBox(
-                      width: width * 0.14,
-                      height: width * 0.14,
-                      child: CustomPaint(
-                        painter: SuitVectorPainter(suit: card.suit!, color: primaryColor),
+          child: Stack(
+            children: [
+              // Top-Left Corner Index
+              Positioned(
+                top: 4,
+                left: 5,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      card.rankLabel,
+                      style: TextStyle(
+                        fontFamily: 'RobotoCondensed',
+                        fontWeight: FontWeight.w900,
+                        fontSize: width * 0.2,
+                        color: primaryColor,
+                        height: 1.0,
                       ),
                     ),
-                ],
+                    if (card.suit != null)
+                      SizedBox(
+                        width: width * 0.14,
+                        height: width * 0.14,
+                        child: CustomPaint(
+                          painter: SuitVectorPainter(suit: card.suit!, color: primaryColor),
+                        ),
+                      ),
+                  ],
+                ),
               ),
-            ),
-          ),
 
-          // Center Card Art / Pips Layout
-          Center(
-            child: _buildCenterArt(card, primaryColor, width, height),
+              // Bottom-Right Corner Index (Inverted)
+              Positioned(
+                bottom: 4,
+                right: 5,
+                child: Transform.rotate(
+                  angle: math.pi,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        card.rankLabel,
+                        style: TextStyle(
+                          fontFamily: 'RobotoCondensed',
+                          fontWeight: FontWeight.w900,
+                          fontSize: width * 0.2,
+                          color: primaryColor,
+                          height: 1.0,
+                        ),
+                      ),
+                      if (card.suit != null)
+                        SizedBox(
+                          width: width * 0.14,
+                          height: width * 0.14,
+                          child: CustomPaint(
+                            painter: SuitVectorPainter(suit: card.suit!, color: primaryColor),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Center Card Art / Pips Layout
+              Center(
+                child: _buildCenterArt(card, primaryColor, width, height),
+              ),
+
+              // CDN Card Sprite Overlay (overlays artwork cleanly, reveals vector fallback on error)
+              Positioned.fill(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    cardCdnUrl,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -760,49 +797,83 @@ class DealingHandWidget extends StatelessWidget {
 
     final sleeveColor = isOpponent ? const Color(0xFFEF4444) : const Color(0xFF3B82F6);
 
-    return SlideTransition(
-      position: offsetTween.animate(
-        CurvedAnimation(parent: slideAnimation, curve: Curves.easeOutCubic),
-      ),
-      child: child != null
-          ? Stack(
-              alignment: Alignment.center,
-              clipBehavior: Clip.none,
-              children: [
-                // 1. Arm sleeve extending outward toward screen edge
-                Positioned(
-                  top: isOpponent ? -cardHeight * 0.45 : null,
-                  bottom: !isOpponent ? -cardHeight * 0.45 : null,
-                  child: CustomPaint(
-                    size: Size(cardWidth * 0.65, cardHeight * 0.5),
-                    painter: ArmSleevePainter(
-                      isOpponent: isOpponent,
-                      sleeveColor: sleeveColor,
+    return ValueListenableBuilder<int>(
+      valueListenable: AssetRegistryService.instance.swapRevision,
+      builder: (context, _, _) {
+        final handRigUrl = AssetRegistryService.instance.resolveHandRigUrl(isOpponent: isOpponent);
+
+        return SlideTransition(
+          key: ValueKey('handrig-$handRigUrl'),
+          position: offsetTween.animate(
+            CurvedAnimation(parent: slideAnimation, curve: Curves.easeOutCubic),
+          ),
+          child: child != null
+              ? Stack(
+                  alignment: Alignment.center,
+                  clipBehavior: Clip.none,
+                  children: [
+                    // 1. Arm sleeve extending outward toward screen edge
+                    Positioned(
+                      top: isOpponent ? -cardHeight * 0.45 : null,
+                      bottom: !isOpponent ? -cardHeight * 0.45 : null,
+                      child: SizedBox(
+                        width: cardWidth * 0.65,
+                        height: cardHeight * 0.5,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            CustomPaint(
+                              size: Size(cardWidth * 0.65, cardHeight * 0.5),
+                              painter: ArmSleevePainter(
+                                isOpponent: isOpponent,
+                                sleeveColor: sleeveColor,
+                              ),
+                            ),
+                            Image.network(
+                              handRigUrl,
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                // 2. The Card being dealt
-                child!,
-                // 3. Gripping Cartoon Hand Fingers on TOP of the card edge
-                Positioned(
-                  top: isOpponent ? -8 : null,
-                  bottom: !isOpponent ? -8 : null,
-                  child: CustomPaint(
-                    size: Size(cardWidth * 0.7, 28),
-                    painter: HandGripPainter(
-                      isOpponent: isOpponent,
+                    // 2. The Card being dealt
+                    child!,
+                    // 3. Gripping Cartoon Hand Fingers on TOP of the card edge
+                    Positioned(
+                      top: isOpponent ? -8 : null,
+                      bottom: !isOpponent ? -8 : null,
+                      child: CustomPaint(
+                        size: Size(cardWidth * 0.7, 28),
+                        painter: HandGripPainter(
+                          isOpponent: isOpponent,
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
+                )
+              : Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CustomPaint(
+                      size: Size(cardWidth * 1.1, cardHeight),
+                      painter: DealingHandPainter(
+                        isOpponent: isOpponent,
+                        sleeveColor: sleeveColor,
+                      ),
+                    ),
+                    Image.network(
+                      handRigUrl,
+                      width: cardWidth * 0.55,
+                      height: cardHeight * 0.55,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                    ),
+                  ],
                 ),
-              ],
-            )
-          : CustomPaint(
-              size: Size(cardWidth * 1.1, cardHeight),
-              painter: DealingHandPainter(
-                isOpponent: isOpponent,
-                sleeveColor: sleeveColor,
-              ),
-            ),
+        );
+      },
     );
   }
 }

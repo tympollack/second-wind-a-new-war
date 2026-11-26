@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/playing_card.dart';
 import '../models/game_state.dart';
 import '../engine/game_engine.dart';
+import '../services/asset_registry_service.dart';
 import '../theme/app_theme.dart';
 import 'card_widget.dart';
 
@@ -65,101 +66,118 @@ class PlayingCardWidget extends StatelessWidget {
       displaySuit = '\u2694'; // crossed swords for musketeer
     }
 
-    return AnimatedScale(
-      scale: isWinner ? 1.15 : 1.0,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        width: width,
-        height: height,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [bgStart, bgEnd],
-          ),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: borderColor, width: 2),
-          boxShadow: [
-            if (isBurning)
-              BoxShadow(
-                color: const Color(0xFFCC5500).withValues(alpha: 0.7),
-                blurRadius: 24,
-                spreadRadius: 6,
+    return ValueListenableBuilder<int>(
+      valueListenable: AssetRegistryService.instance.swapRevision,
+      builder: (context, _, _) {
+        final cardCdnUrl = AssetRegistryService.instance.resolveCardUrl(card);
+        return AnimatedScale(
+          key: ValueKey('playingcard-$cardCdnUrl'),
+          scale: isWinner ? 1.15 : 1.0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            width: width,
+            height: height,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [bgStart, bgEnd],
               ),
-            if (isBurning)
-              BoxShadow(
-                color: const Color(0xFFFF8C00).withValues(alpha: 0.4),
-                blurRadius: 8,
-                spreadRadius: 2,
-              ),
-            if (isWinner)
-              BoxShadow(
-                color: AppTheme.winGreen.withValues(alpha: 0.4),
-                blurRadius: 16,
-                spreadRadius: 4,
-              ),
-            if (status == CardStatus.joker)
-              BoxShadow(
-                color: AppTheme.cyanJoker.withValues(alpha: 0.3),
-                blurRadius: 20,
-                spreadRadius: 2,
-              ),
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.4),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            // Fire overlay when burning
-            if (isBurning)
-              Positioned.fill(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: CustomPaint(
-                    painter: _FireOverlayPainter(),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: borderColor, width: 2),
+              boxShadow: [
+                if (isBurning)
+                  BoxShadow(
+                    color: const Color(0xFFCC5500).withValues(alpha: 0.7),
+                    blurRadius: 24,
+                    spreadRadius: 6,
                   ),
+                if (isBurning)
+                  BoxShadow(
+                    color: const Color(0xFFFF8C00).withValues(alpha: 0.4),
+                    blurRadius: 8,
+                    spreadRadius: 2,
+                  ),
+                if (isWinner)
+                  BoxShadow(
+                    color: AppTheme.winGreen.withValues(alpha: 0.4),
+                    blurRadius: 16,
+                    spreadRadius: 4,
+                  ),
+                if (status == CardStatus.joker)
+                  BoxShadow(
+                    color: AppTheme.cyanJoker.withValues(alpha: 0.3),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                  ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.4),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
                 ),
-              ),
-            // Joker electricity effect
-            if (status == CardStatus.joker)
-              Positioned.fill(
-                child: CustomPaint(
-                  painter: _ElectricityPainter(borderColor),
-                ),
-              ),
-            // Card content
-            Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    card.rankLabel,
-                    style: TextStyle(
-                      fontFamily: 'RobotoCondensed',
-                      fontWeight: FontWeight.w900,
-                      fontSize: width * (card.rankLabel.length > 1 ? 0.28 : 0.35),
-                      color: textColor,
-                      height: 1,
+              ],
+            ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // Fire overlay when burning
+                if (isBurning)
+                  Positioned.fill(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: CustomPaint(
+                        painter: _FireOverlayPainter(),
+                      ),
                     ),
                   ),
-                  SizedBox(height: height * 0.08),
-                  Text(
-                    displaySuit,
-                    style: TextStyle(
-                      fontSize: width * 0.25,
-                      color: textColor,
-                      height: 1.2,
+                // Joker electricity effect
+                if (status == CardStatus.joker)
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: _ElectricityPainter(borderColor),
                     ),
                   ),
-                ],
-              ),
-            ),
+                // Card content fallback when CDN sprite is unavailable
+                Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        card.rankLabel,
+                        style: TextStyle(
+                          fontFamily: 'RobotoCondensed',
+                          fontWeight: FontWeight.w900,
+                          fontSize: width * (card.rankLabel.length > 1 ? 0.28 : 0.35),
+                          color: textColor,
+                          height: 1,
+                        ),
+                      ),
+                      SizedBox(height: height * 0.08),
+                      Text(
+                        displaySuit,
+                        style: TextStyle(
+                          fontSize: width * 0.25,
+                          color: textColor,
+                          height: 1.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // CDN Card Sprite Overlay (overlays artwork cleanly, reveals vector fallback on error)
+                Positioned.fill(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.network(
+                      cardCdnUrl,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                    ),
+                  ),
+                ),
 
             // Top-left rank
             Positioned(
@@ -184,35 +202,37 @@ class PlayingCardWidget extends StatelessWidget {
                 ),
               ),
             ),
-            // Bottom-right rank (inverted)
-            Positioned(
-              bottom: 4,
-              right: 6,
-              child: Transform.rotate(
-                angle: 3.14159,
-                child: SizedBox(
-                  width: 18,
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      card.rankLabel,
-                      maxLines: 1,
-                      softWrap: false,
-                      style: TextStyle(
-                        fontFamily: 'RobotoCondensed',
-                        fontWeight: FontWeight.w700,
-                        fontSize: 10,
-                        color: textColor.withValues(alpha: 0.7),
+                    // Bottom-right rank (inverted)
+                    Positioned(
+                      bottom: 4,
+                      right: 6,
+                      child: Transform.rotate(
+                        angle: 3.14159,
+                        child: SizedBox(
+                          width: 18,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              card.rankLabel,
+                              maxLines: 1,
+                              softWrap: false,
+                              style: TextStyle(
+                                fontFamily: 'RobotoCondensed',
+                                fontWeight: FontWeight.w700,
+                                fontSize: 10,
+                                color: textColor.withValues(alpha: 0.7),
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
+            );
+      },
     );
   }
 }
@@ -237,6 +257,7 @@ class FaceDownCardWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     if (count == 0) return const SizedBox.shrink();
     final displayCount = count.clamp(1, 3);
+    final activeTheme = cardBackTheme ?? CardBackTheme.canyonCyan;
     return SizedBox(
       width: width + (displayCount - 1) * spread,
       height: height,
@@ -244,48 +265,11 @@ class FaceDownCardWidget extends StatelessWidget {
         children: List.generate(displayCount, (i) {
           return Positioned(
             left: i * spread,
-            child: cardBackTheme != null
-                ? CardBackWidget(
-                    theme: cardBackTheme!,
-                    width: width,
-                    height: height,
-                  )
-                : Container(
-                    width: width,
-                    height: height,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Color(0xFF312E81), // indigo-900 equivalent
-                          Color(0xFF111827), // gray-900 equivalent
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: AppTheme.metalGray.withValues(alpha: 0.6),
-                        width: 2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.3),
-                          blurRadius: 4,
-                          offset: const Offset(2, 2),
-                        ),
-                      ],
-                    ),
-                    child: Center(
-                      child: Text(
-                        '?',
-                        style: TextStyle(
-                          fontSize: width * 0.4,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.indigo.shade300,
-                        ),
-                      ),
-                    ),
-                  ),
+            child: CardBackWidget(
+              theme: activeTheme,
+              width: width,
+              height: height,
+            ),
           );
         }),
       ),
